@@ -202,7 +202,7 @@ bool TreeBillboardsApp::Initialize()
 	// so we have to query this information.
     mCbvSrvDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    mWaves = std::make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
+    mWaves = std::make_unique<Waves>(164, 164, 1.0f, 0.03f, 4.0f, 0.2f);
  
 	LoadTextures();
     BuildRootSignature();
@@ -554,7 +554,52 @@ void TreeBillboardsApp::BuildCastleGeometry()
 }
 
 void TreeBillboardsApp::BuildCastleCorners()
-{
+{	// Create a singular wall geometry, which will then be copied to make multiple walls
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData corner = geoGen.CreateCylinder(1.0f, 1.0f, 1.0f, 15, 10);
+
+	std::vector<Vertex> vertices(corner.Vertices.size());
+	for (size_t i = 0; i < corner.Vertices.size(); ++i)
+	{
+		auto& p = corner.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = corner.Vertices[i].Normal;
+		vertices[i].TexC = corner.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = corner.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "wallGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["corner"] = submesh;
+
+	mGeometries["cornerGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::BuildCastleWalls()
@@ -810,7 +855,15 @@ void TreeBillboardsApp::BuildLandGeometry()
     {
         auto& p = grid.Vertices[i].Position;
         vertices[i].Pos = p;
-		vertices[i].Pos.y = -1.0f; //GetHillsHeight(p.x, p.z);
+		if (abs(p.x)> 52 && abs(p.x)< 65 && abs(p.z) < 65 || abs(p.z) > 52 && abs(p.z) < 65 && abs(p.x) < 65)
+		{
+			vertices[i].Pos.y = -10.0f;
+		}
+		else
+		{
+			vertices[i].Pos.y = 6.0f; //GetHillsHeight(p.x, p.z);
+		}
+		
 		vertices[i].Normal = XMFLOAT3(p.x, 1.0f, p.y); //GetHillsNormal(p.x, p.z);
 		vertices[i].TexC = grid.Vertices[i].TexC;
     }
@@ -1186,8 +1239,8 @@ void TreeBillboardsApp::BuildRenderItems()
 	// Create a single ObjCBIndex int to count each object being drawn
 	int funcCBIndex = 0;
 
-    auto wavesRitem = std::make_unique<RenderItem>();
-    wavesRitem->World = MathHelper::Identity4x4();
+	auto wavesRitem = std::make_unique<RenderItem>();
+	wavesRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&wavesRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	wavesRitem->ObjCBIndex = funcCBIndex++;
 	wavesRitem->Mat = mMaterials["water"].get();
@@ -1197,26 +1250,26 @@ void TreeBillboardsApp::BuildRenderItems()
 	wavesRitem->StartIndexLocation = wavesRitem->Geo->DrawArgs["grid"].StartIndexLocation;
 	wavesRitem->BaseVertexLocation = wavesRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 
-    mWavesRitem = wavesRitem.get();
+	mWavesRitem = wavesRitem.get();
 
 	mRitemLayer[(int)RenderLayer::Transparent].push_back(wavesRitem.get());
 
-    auto gridRitem = std::make_unique<RenderItem>();
-    gridRitem->World = MathHelper::Identity4x4();
+	auto gridRitem = std::make_unique<RenderItem>();
+	gridRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
 	gridRitem->ObjCBIndex = funcCBIndex++;
 	gridRitem->Mat = mMaterials["grass"].get();
 	gridRitem->Geo = mGeometries["landGeo"].get();
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-    gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
-    gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
-    gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
+	gridRitem->IndexCount = gridRitem->Geo->DrawArgs["grid"].IndexCount;
+	gridRitem->StartIndexLocation = gridRitem->Geo->DrawArgs["grid"].StartIndexLocation;
+	gridRitem->BaseVertexLocation = gridRitem->Geo->DrawArgs["grid"].BaseVertexLocation;
 
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
 
 	auto boxRitem = std::make_unique<RenderItem>();
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixTranslation(3.0f, 30.0f, -9.0f));
-	boxRitem->ObjCBIndex = funcCBIndex++;
+	//boxRitem->ObjCBIndex = funcCBIndex++;
 	boxRitem->Mat = mMaterials["brick"].get();
 	boxRitem->Geo = mGeometries["boxGeo"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1224,7 +1277,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
-	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
+	//mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
@@ -1243,14 +1296,29 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mAllRitems.push_back(std::move(wavesRitem));
 	mAllRitems.push_back(std::move(gridRitem));
-	mAllRitems.push_back(std::move(boxRitem));
+	//mAllRitems.push_back(std::move(boxRitem));
 	//mAllRitems.push_back(std::move(treeSpritesRitem));
 
-	// This block draws 3 of the 4 main castle walls, specifically the ones without the gate
-	for (int i = 0; i < 3; i++)
-	{
+	// Build the base of the castle
+	auto baseRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(65.0f, 10.0f, 77.0f) * XMMatrixTranslation(0.0f, 4.0f, 0.0f)));
+	baseRitem->ObjCBIndex = funcCBIndex++;
+	baseRitem->Mat = mMaterials["brick"].get();
+	baseRitem->Geo = mGeometries["wallGeo"].get();
+	baseRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	baseRitem->IndexCount = baseRitem->Geo->DrawArgs["wall"].IndexCount;
+	baseRitem->StartIndexLocation = baseRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+	baseRitem->BaseVertexLocation = baseRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(baseRitem.get());
+	mAllRitems.push_back(std::move(baseRitem));
+
+
+	// This loop draws 3 of the 4 main castle walls, specifically the ones without the gate
+	for (int i = 0; i < 3; i++)
+	{
 		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(10.0f + (20.0f * (i % 2)), 20.0f, 10.0f + (20.0f * (1.0f - (i % 2)))) * XMMatrixTranslation((i * 12.5f), 12.0f, 0.0f - 7.5f * (1 - (i % 2)))));
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (40.0f * (i % 2)), 25.0f, 5.0f + (55.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-30.0f + (i * 30.0f), 22.0f, 35.0f - 35.0f * (1 - (i % 2)))));
 		wallRitem->ObjCBIndex = funcCBIndex++;
 		wallRitem->Mat = mMaterials["marble"].get();
 		wallRitem->Geo = mGeometries["wallGeo"].get();
@@ -1260,12 +1328,43 @@ void TreeBillboardsApp::BuildRenderItems()
 		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
 
 		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
-
-		mAllRitems.push_back(std::move(wallRitem));
+		mAllRitems.push_back(std::move(wallRitem));
 	}
 
-   
-	
+	// This loop draws the walls surrounding the castle's gate
+	for (int i = 0; i < 3; i++)
+	{
+		auto gateRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(15.0f, 25.0f - 15.0f * (1.0f * (i % 2)), 5.0f) * XMMatrixTranslation(-15.0f + (15.0f * i), 22.0f + 7.5f * (i % 2), -35.0f)));
+		gateRitem->ObjCBIndex = funcCBIndex++;
+		gateRitem->Mat = mMaterials["marble"].get();
+		gateRitem->Geo = mGeometries["wallGeo"].get();
+		gateRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		gateRitem->IndexCount = gateRitem->Geo->DrawArgs["wall"].IndexCount;
+		gateRitem->StartIndexLocation = gateRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+		gateRitem->BaseVertexLocation = gateRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(gateRitem.get());
+		mAllRitems.push_back(std::move(gateRitem));
+	}
+
+	// Build the corners of the castle walls
+	for (int i = 0; i < 4; i++)
+	{
+		auto cornerRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&cornerRitem->World, (XMMatrixScaling(10.0f, 45.0f, 10.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 28.0f, 35.0f - 70.0f * (i / 2))));
+		cornerRitem->ObjCBIndex = funcCBIndex++;
+		cornerRitem->Mat = mMaterials["brick"].get();
+		cornerRitem->Geo = mGeometries["cornerGeo"].get();
+		cornerRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		cornerRitem->IndexCount = cornerRitem->Geo->DrawArgs["corner"].IndexCount;
+		cornerRitem->StartIndexLocation = cornerRitem->Geo->DrawArgs["corner"].StartIndexLocation;
+		cornerRitem->BaseVertexLocation = cornerRitem->Geo->DrawArgs["corner"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(cornerRitem.get());
+		mAllRitems.push_back(std::move(cornerRitem));
+	}
+
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
