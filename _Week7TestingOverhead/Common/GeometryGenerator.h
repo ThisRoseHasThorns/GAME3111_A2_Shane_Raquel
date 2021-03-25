@@ -110,6 +110,25 @@ public:
 	///</summary>
     MeshData CreateQuad(float x, float y, float w, float h, float depth);
 	void Subdivide(MeshData& meshData);
+
+	// Cone - Basically a cylinder with one of its ends having a radius of 0 (a point)
+	MeshData CreateCone(float radius, float height, bool isFlipped, uint32 sliceCount, uint32 stackCount);
+
+	// Wedge - Triangular prism with right triangles
+	MeshData CreateWedge(float width, float height, float depth, uint32 numSubdivisions);
+
+	// Torus - Spinning a circle about an axis
+	MeshData CreateTorus(float innerRadius, float outerRadius, uint32 sliceCount, uint32 stackCount);
+
+	// Pyramid - Creates a pointed-tip pyramid, will expand to make flat-tip pyramids if time permits
+	MeshData CreatePyramid(float baseWidth, float baseDepth, float height);
+	
+	// Diamond
+	MeshData CreateDiamond(float middleWidth, float middleDepth, float height);
+	
+	// Triangular Prism
+	MeshData CreateTriangularPrism(float width, float depth, float height);
+
 private:
 	
     Vertex MidPoint(const Vertex& v0, const Vertex& v1);

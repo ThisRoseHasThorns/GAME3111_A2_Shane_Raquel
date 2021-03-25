@@ -88,6 +88,11 @@ private:
 	void UpdateMainPassCB(const GameTimer& gt);
 	void UpdateWaves(const GameTimer& gt); 
 
+	// Castle rendering functions
+	void BuildCastleGeometry();
+	void BuildCastleCorners();
+	void BuildCastleWalls();
+
 	void LoadTextures();
     void BuildRootSignature();
 	void BuildDescriptorHeaps();
@@ -203,6 +208,7 @@ bool TreeBillboardsApp::Initialize()
     BuildRootSignature();
 	BuildDescriptorHeaps();
     BuildShadersAndInputLayouts();
+	BuildCastleGeometry();
     BuildLandGeometry();
     BuildWavesGeometry();
 	BuildBoxGeometry();
@@ -539,6 +545,66 @@ void TreeBillboardsApp::UpdateWaves(const GameTimer& gt)
 
 	// Set the dynamic VB of the wave renderitem to the current frame VB.
 	mWavesRitem->Geo->VertexBufferGPU = currWavesVB->Resource();
+}
+
+void TreeBillboardsApp::BuildCastleGeometry()
+{
+	BuildCastleWalls();
+	BuildCastleCorners();
+}
+
+void TreeBillboardsApp::BuildCastleCorners()
+{
+}
+
+void TreeBillboardsApp::BuildCastleWalls()
+{
+	// Create a singular wall geometry, which will then be copied to make multiple walls
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData wall = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 3);
+
+	std::vector<Vertex> vertices(wall.Vertices.size());
+	for (size_t i = 0; i < wall.Vertices.size(); ++i)
+	{
+		auto& p = wall.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = wall.Vertices[i].Normal;
+		vertices[i].TexC = wall.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = wall.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "wallGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["wall"] = submesh;
+
+	mGeometries["wallGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::LoadTextures()
@@ -1085,10 +1151,13 @@ void TreeBillboardsApp::BuildMaterials()
 
 void TreeBillboardsApp::BuildRenderItems()
 {
+	// Create a single ObjCBIndex int to count each object being drawn
+	int funcCBIndex = 0;
+
     auto wavesRitem = std::make_unique<RenderItem>();
     wavesRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&wavesRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
-	wavesRitem->ObjCBIndex = 0;
+	wavesRitem->ObjCBIndex = funcCBIndex++;
 	wavesRitem->Mat = mMaterials["water"].get();
 	wavesRitem->Geo = mGeometries["waterGeo"].get();
 	wavesRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1103,7 +1172,7 @@ void TreeBillboardsApp::BuildRenderItems()
     auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
-	gridRitem->ObjCBIndex = 1;
+	gridRitem->ObjCBIndex = funcCBIndex++;
 	gridRitem->Mat = mMaterials["grass"].get();
 	gridRitem->Geo = mGeometries["landGeo"].get();
 	gridRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1114,8 +1183,8 @@ void TreeBillboardsApp::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
 
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixTranslation(3.0f, 20.0f, -9.0f));
-	boxRitem->ObjCBIndex = 2;
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixTranslation(3.0f, 30.0f, -9.0f));
+	boxRitem->ObjCBIndex = funcCBIndex++;
 	boxRitem->Mat = mMaterials["wirefence"].get();
 	boxRitem->Geo = mGeometries["boxGeo"].get();
 	boxRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -1123,11 +1192,11 @@ void TreeBillboardsApp::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
-	//mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
-	treeSpritesRitem->ObjCBIndex = 3;
+	//treeSpritesRitem->ObjCBIndex = funcCBIndex++;
 	treeSpritesRitem->Mat = mMaterials["treeSprites"].get();
 	treeSpritesRitem->Geo = mGeometries["treeSpritesGeo"].get();
 	//step2
@@ -1136,12 +1205,34 @@ void TreeBillboardsApp::BuildRenderItems()
 	treeSpritesRitem->StartIndexLocation = treeSpritesRitem->Geo->DrawArgs["points"].StartIndexLocation;
 	treeSpritesRitem->BaseVertexLocation = treeSpritesRitem->Geo->DrawArgs["points"].BaseVertexLocation;
 
-	mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].push_back(treeSpritesRitem.get());
+	//mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].push_back(treeSpritesRitem.get());
 
-    mAllRitems.push_back(std::move(wavesRitem));
-    mAllRitems.push_back(std::move(gridRitem));
+	mAllRitems.push_back(std::move(wavesRitem));
+	mAllRitems.push_back(std::move(gridRitem));
 	mAllRitems.push_back(std::move(boxRitem));
-	mAllRitems.push_back(std::move(treeSpritesRitem));
+	//mAllRitems.push_back(std::move(treeSpritesRitem));
+
+	for (int i = 0; i < 3; i++)
+	{
+		auto wallRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (15.0f * (i % 2)), 20.0f, 5.0f + (15.0f * (1.0f - (i % 2)))) * XMMatrixTranslation((i * 12.5f), 12.0f, 0.0f - 7.5f * (1 - (i % 2)))));
+		wallRitem->ObjCBIndex = funcCBIndex++;
+		wallRitem->Mat = mMaterials["wirefence"].get();
+		wallRitem->Geo = mGeometries["wallGeo"].get();
+		wallRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		wallRitem->IndexCount = wallRitem->Geo->DrawArgs["wall"].IndexCount;
+		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
+
+		mAllRitems.push_back(std::move(wallRitem));
+	}
+
+	
+
+    
+	
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
