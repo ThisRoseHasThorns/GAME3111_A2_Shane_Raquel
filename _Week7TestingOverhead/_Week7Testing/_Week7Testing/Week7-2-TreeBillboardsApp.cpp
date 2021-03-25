@@ -92,6 +92,9 @@ private:
 	void BuildCastleGeometry();
 	void BuildCastleCorners();
 	void BuildCastleWalls();
+	void BuildCone();
+	void BuildPyramid();
+	void BuildDiamond();
 
 	void LoadTextures();
     void BuildRootSignature();
@@ -371,7 +374,7 @@ void TreeBillboardsApp::OnMouseMove(WPARAM btnState, int x, int y)
         mRadius += dx - dy;
 
         // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+        mRadius = MathHelper::Clamp(mRadius, 5.0f, 250.0f);
     }
 
     mLastMousePos.x = x;
@@ -551,6 +554,9 @@ void TreeBillboardsApp::BuildCastleGeometry()
 {
 	BuildCastleWalls();
 	BuildCastleCorners();
+	BuildCone();
+	BuildPyramid();
+	BuildDiamond();
 }
 
 void TreeBillboardsApp::BuildCastleCorners()
@@ -651,6 +657,64 @@ void TreeBillboardsApp::BuildCastleWalls()
 	geo->DrawArgs["wall"] = submesh;
 
 	mGeometries["wallGeo"] = std::move(geo);
+}
+
+void TreeBillboardsApp::BuildCone()
+{
+	// Cones used to top the castle towers
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData cone = geoGen.CreateCone(1.0f, 1.0f, false, 15, 10);
+
+	std::vector<Vertex> vertices(cone.Vertices.size());
+	for (size_t i = 0; i < cone.Vertices.size(); ++i)
+	{
+		auto& p = cone.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = cone.Vertices[i].Normal;
+		vertices[i].TexC = cone.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = cone.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "coneGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["cone"] = submesh;
+
+	mGeometries["coneGeo"] = std::move(geo);
+}
+
+void TreeBillboardsApp::BuildPyramid()
+{
+}
+
+void TreeBillboardsApp::BuildDiamond()
+{
 }
 
 void TreeBillboardsApp::LoadTextures()
@@ -1356,16 +1420,25 @@ void TreeBillboardsApp::BuildRenderItems()
 	baseRitem->IndexCount = baseRitem->Geo->DrawArgs["wall"].IndexCount;
 	baseRitem->StartIndexLocation = baseRitem->Geo->DrawArgs["wall"].StartIndexLocation;
 	baseRitem->BaseVertexLocation = baseRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(baseRitem.get());	mAllRitems.push_back(std::move(baseRitem));
 
-	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(baseRitem.get());
-	mAllRitems.push_back(std::move(baseRitem));
-
+	// Build the drawbridge
+	auto bridgeRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&bridgeRitem->World, (XMMatrixScaling(15.0f, 4.0f, 35.0f) * XMMatrixTranslation(0.0f, 8.0f, -56.0f)));
+	bridgeRitem->ObjCBIndex = funcCBIndex++;
+	bridgeRitem->Mat = mMaterials["wood"].get();
+	bridgeRitem->Geo = mGeometries["wallGeo"].get();
+	bridgeRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	bridgeRitem->IndexCount = bridgeRitem->Geo->DrawArgs["wall"].IndexCount;
+	bridgeRitem->StartIndexLocation = bridgeRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+	bridgeRitem->BaseVertexLocation = bridgeRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(bridgeRitem.get());	mAllRitems.push_back(std::move(bridgeRitem));
 
 	// This loop draws 3 of the 4 main castle walls, specifically the ones without the gate
 	for (int i = 0; i < 3; i++)
 	{
 		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (40.0f * (i % 2)), 25.0f, 5.0f + (55.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-30.0f + (i * 30.0f), 22.0f, 35.0f - 35.0f * (1 - (i % 2)))));
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (40.0f * (i % 2)), 45.0f, 5.0f + (55.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-30.0f + (i * 30.0f), 32.0f, 35.0f - 35.0f * (1 - (i % 2)))));
 		wallRitem->ObjCBIndex = funcCBIndex++;
 		wallRitem->Mat = mMaterials["marble"].get();
 		wallRitem->Geo = mGeometries["wallGeo"].get();
@@ -1382,7 +1455,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 3; i++)
 	{
 		auto gateRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(15.0f, 25.0f - 15.0f * (1.0f * (i % 2)), 5.0f) * XMMatrixTranslation(-15.0f + (15.0f * i), 22.0f + 7.5f * (i % 2), -35.0f)));
+		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(15.0f, 45.0f - 30.0f * (1.0f * (i % 2)), 5.0f) * XMMatrixTranslation(-15.0f + (15.0f * i), 32.0f + 15.0f * (i % 2), -35.0f)));
 		gateRitem->ObjCBIndex = funcCBIndex++;
 		gateRitem->Mat = mMaterials["marble"].get();
 		gateRitem->Geo = mGeometries["wallGeo"].get();
@@ -1399,7 +1472,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 4; i++)
 	{
 		auto cornerRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&cornerRitem->World, (XMMatrixScaling(10.0f, 45.0f, 10.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 28.0f, 35.0f - 70.0f * (i / 2))));
+		XMStoreFloat4x4(&cornerRitem->World, (XMMatrixScaling(10.0f, 65.0f, 10.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 38.0f, 35.0f - 70.0f * (i / 2))));
 		cornerRitem->ObjCBIndex = funcCBIndex++;
 		cornerRitem->Mat = mMaterials["brick"].get();
 		cornerRitem->Geo = mGeometries["cornerGeo"].get();
@@ -1410,6 +1483,23 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(cornerRitem.get());
 		mAllRitems.push_back(std::move(cornerRitem));
+	}
+
+	// Build the tips of the wall's towers
+	for (int i = 0; i < 4; i++)
+	{
+		auto tipRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&tipRitem->World, (XMMatrixScaling(8.5f, 20.0f, 8.5f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 80.0f, 35.0f - 70.0f * (i / 2))));
+		tipRitem->ObjCBIndex = funcCBIndex++;
+		tipRitem->Mat = mMaterials["marble"].get();
+		tipRitem->Geo = mGeometries["coneGeo"].get();
+		tipRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		tipRitem->IndexCount = tipRitem->Geo->DrawArgs["cone"].IndexCount;
+		tipRitem->StartIndexLocation = tipRitem->Geo->DrawArgs["cone"].StartIndexLocation;
+		tipRitem->BaseVertexLocation = tipRitem->Geo->DrawArgs["cone"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(tipRitem.get());
+		mAllRitems.push_back(std::move(tipRitem));
 	}
 }
 
