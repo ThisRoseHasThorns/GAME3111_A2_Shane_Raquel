@@ -507,6 +507,51 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[2].Direction = { -0.707f, -0.707f, -5.707f };
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 
+	// Point Lights
+	mMainPassCB.Lights[3].Position = { 0.0f, 30.0f, 10.0f };
+	mMainPassCB.Lights[3].Strength = { 0.0f, 1.0f, 0.0f };
+	mMainPassCB.Lights[3].FalloffStart = 5.0f;
+	mMainPassCB.Lights[3].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[4].Position = { -30.0f, 100.0f, -35.0f };
+	mMainPassCB.Lights[4].Strength = { 0.0f, 1.0f, 0.0f };
+	mMainPassCB.Lights[4].FalloffStart = 5.0f;
+	mMainPassCB.Lights[4].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[5].Position = { 30.0f, 100.0f, -35.0f };
+	mMainPassCB.Lights[5].Strength = { 0.0f, 1.0f, 0.0f };
+	mMainPassCB.Lights[5].FalloffStart = 5.0f;
+	mMainPassCB.Lights[5].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[6].Position = { -30.0f, 100.0f, 35.0f };
+	mMainPassCB.Lights[6].Strength = { 0.0f, 1.0f, 0.0f };
+	mMainPassCB.Lights[6].FalloffStart = 5.0f;
+	mMainPassCB.Lights[6].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[7].Position = { 30.0f, 100.0f, 35.0f };
+	mMainPassCB.Lights[7].Strength = { 0.0f, 1.0f, 0.0f };
+	mMainPassCB.Lights[7].FalloffStart = 5.0f;
+	mMainPassCB.Lights[7].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[8].Position = { -10.0f, 40.0f, -42.0f };
+	mMainPassCB.Lights[8].Strength = { 0.0f, 0.0f, 1.0f };
+	mMainPassCB.Lights[8].FalloffStart = 5.0f;
+	mMainPassCB.Lights[8].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[9].Position = { 10.0f, 40.0f, -42.0f };
+	mMainPassCB.Lights[9].Strength = { 0.0f, 0.0f, 1.0f };
+	mMainPassCB.Lights[9].FalloffStart = 5.0f;
+	mMainPassCB.Lights[9].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[10].Position = { -20.0f, 40.0f, -10.0f };
+	mMainPassCB.Lights[10].Strength = { 0.0f, 0.0f, 1.0f };
+	mMainPassCB.Lights[10].FalloffStart = 5.0f;
+	mMainPassCB.Lights[10].FalloffEnd = 50.0f;
+
+	mMainPassCB.Lights[11].Position = { 20.0f, 40.0f, -10.0f };
+	mMainPassCB.Lights[11].Strength = { 0.0f, 0.0f, 1.0f };
+	mMainPassCB.Lights[11].FalloffStart = 5.0f;
+	mMainPassCB.Lights[11].FalloffEnd = 50.0f;
 	
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();

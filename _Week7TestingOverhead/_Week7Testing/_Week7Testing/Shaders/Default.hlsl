@@ -10,11 +10,11 @@
 #endif
 
 #ifndef NUM_POINT_LIGHTS
-    #define NUM_POINT_LIGHTS 3
+    #define NUM_POINT_LIGHTS 9
 #endif
 
 #ifndef NUM_SPOT_LIGHTS
-    #define NUM_SPOT_LIGHTS 3
+    #define NUM_SPOT_LIGHTS 0
 #endif
 
 // Include structures and functions for lighting.
