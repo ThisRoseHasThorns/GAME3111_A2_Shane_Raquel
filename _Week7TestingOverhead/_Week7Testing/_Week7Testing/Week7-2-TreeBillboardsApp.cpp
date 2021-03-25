@@ -1027,7 +1027,7 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 void TreeBillboardsApp::BuildLandGeometry()
 {
     GeometryGenerator geoGen;
-    GeometryGenerator::MeshData grid = geoGen.CreateGrid(160.0f, 160.0f, 50, 50);
+    GeometryGenerator::MeshData grid = geoGen.CreateGrid(240.0f, 240.0f, 75, 75);
 
     //
     // Extract the vertex elements we are interested and apply the height function to
@@ -1202,25 +1202,66 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		XMFLOAT2 Size;
 	};
 
-	static const int treeCount = 16;
-	std::array<TreeSpriteVertex, 16> vertices;
+	static const int treeCount = 32;
+	std::array<TreeSpriteVertex, 32> vertices;
 	for(UINT i = 0; i < treeCount; ++i)
 	{
-		float x = MathHelper::RandF(-45.0f, 45.0f);
-		float z = MathHelper::RandF(-45.0f, 45.0f);
-		float y = 0.0f; //GetHillsHeight(x, z);
+		if (i < treeCount / 4)
+		{
+			float x = MathHelper::RandF(-110.0f, -70.0f);
+			float z = MathHelper::RandF(-100.0f, 100.0f);
+			float y = 24.0f; //GetHillsHeight(x, z);
 
-		// Move tree slightly above land height.
-		y += 8.0f;
+			vertices[i].Pos = XMFLOAT3(x, y, z);
+			vertices[i].Size = XMFLOAT2(40.0f, 40.0f);
+		}
+		else if (i < treeCount / 2)
+		{
+			float x = MathHelper::RandF(70.0f, 110.0f);
+			float z = MathHelper::RandF(-100.0f, 100.0f);
+			float y = 24.0f; //GetHillsHeight(x, z);
 
-		vertices[i].Pos = XMFLOAT3(x, y, z);
-		vertices[i].Size = XMFLOAT2(20.0f, 20.0f);
+			vertices[i].Pos = XMFLOAT3(x, y, z);
+			vertices[i].Size = XMFLOAT2(40.0f, 40.0f);
+		}
+		else if (i < (3 * treeCount) / 4)
+		{
+			if (i % 2 == 0)
+			{
+				float x = MathHelper::RandF(-100.0f, -20.0f);
+				float z = MathHelper::RandF(-110.0f, -70.0f);
+				float y = 24.0f; //GetHillsHeight(x, z);
+
+				vertices[i].Pos = XMFLOAT3(x, y, z);
+				vertices[i].Size = XMFLOAT2(40.0f, 40.0f);
+			}
+			else
+			{
+				float x = MathHelper::RandF(20.0f, 100.0f);
+				float z = MathHelper::RandF(-110.0f, -70.0f);
+				float y = 24.0f; //GetHillsHeight(x, z);
+
+				vertices[i].Pos = XMFLOAT3(x, y, z);
+				vertices[i].Size = XMFLOAT2(40.0f, 40.0f);
+			}
+		}
+		else
+		{
+			float x = MathHelper::RandF(-100.0f, 100.0f);
+			float z = MathHelper::RandF(70.0f, 110.0f);
+			float y = 24.0f; //GetHillsHeight(x, z);
+
+			vertices[i].Pos = XMFLOAT3(x, y, z);
+			vertices[i].Size = XMFLOAT2(40.0f, 40.0f);
+		}
 	}
 
-	std::array<std::uint16_t, 16> indices =
+	std::array<std::uint16_t, 32> indices =
 	{
 		0, 1, 2, 3, 4, 5, 6, 7,
-		8, 9, 10, 11, 12, 13, 14, 15
+		8, 9, 10, 11, 12, 13, 14, 15,
+		16, 17, 18, 19, 20, 21, 22, 23,
+		24, 25, 26, 27, 28, 29, 30, 31
 	};
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(TreeSpriteVertex);
@@ -1484,7 +1525,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
-	//treeSpritesRitem->ObjCBIndex = funcCBIndex++;
+	treeSpritesRitem->ObjCBIndex = funcCBIndex++;
 	treeSpritesRitem->Mat = mMaterials["treeSprites"].get();
 	treeSpritesRitem->Geo = mGeometries["treeSpritesGeo"].get();
 	//step2
@@ -1495,12 +1536,12 @@ void TreeBillboardsApp::BuildRenderItems()
 
 
 
-	//mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].push_back(treeSpritesRitem.get());
+	mRitemLayer[(int)RenderLayer::AlphaTestedTreeSprites].push_back(treeSpritesRitem.get());
 
 	mAllRitems.push_back(std::move(wavesRitem));
 	mAllRitems.push_back(std::move(gridRitem));
 	//mAllRitems.push_back(std::move(boxRitem));
-	//mAllRitems.push_back(std::move(treeSpritesRitem));
+	mAllRitems.push_back(std::move(treeSpritesRitem));
 
 	// Build the base of the castle
 	auto baseRitem = std::make_unique<RenderItem>();
