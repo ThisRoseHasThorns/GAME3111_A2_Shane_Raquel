@@ -711,6 +711,52 @@ void TreeBillboardsApp::BuildCone()
 
 void TreeBillboardsApp::BuildPyramid()
 {
+	// Pyramid of power
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData pyramid = geoGen.CreatePyramid(1.0f, 1.0f, 1.0f);
+
+	std::vector<Vertex> vertices(pyramid.Vertices.size());
+	for (size_t i = 0; i < pyramid.Vertices.size(); ++i)
+	{
+		auto& p = pyramid.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = pyramid.Vertices[i].Normal;
+		vertices[i].TexC = pyramid.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = pyramid.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "pyramidGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["pyramid"] = submesh;
+
+	mGeometries["pyramidGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::BuildDiamond()
@@ -1433,6 +1479,18 @@ void TreeBillboardsApp::BuildRenderItems()
 	bridgeRitem->StartIndexLocation = bridgeRitem->Geo->DrawArgs["wall"].StartIndexLocation;
 	bridgeRitem->BaseVertexLocation = bridgeRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
 	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(bridgeRitem.get());	mAllRitems.push_back(std::move(bridgeRitem));
+
+	// Build the pyramid inside the castle
+	auto pyramidRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&pyramidRitem->World, (XMMatrixScaling(20.0f, 12.0f, 20.0f) * XMMatrixTranslation(0.0f, 16.0f, 10.0f)));
+	pyramidRitem->ObjCBIndex = funcCBIndex++;
+	pyramidRitem->Mat = mMaterials["crystal"].get();
+	pyramidRitem->Geo = mGeometries["pyramidGeo"].get();
+	pyramidRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	pyramidRitem->IndexCount = pyramidRitem->Geo->DrawArgs["pyramid"].IndexCount;
+	pyramidRitem->StartIndexLocation = pyramidRitem->Geo->DrawArgs["pyramid"].StartIndexLocation;
+	pyramidRitem->BaseVertexLocation = pyramidRitem->Geo->DrawArgs["pyramid"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(pyramidRitem.get());	mAllRitems.push_back(std::move(pyramidRitem));
 
 	// This loop draws 3 of the 4 main castle walls, specifically the ones without the gate
 	for (int i = 0; i < 3; i++)
