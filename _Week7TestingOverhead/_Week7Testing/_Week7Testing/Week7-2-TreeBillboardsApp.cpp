@@ -761,6 +761,52 @@ void TreeBillboardsApp::BuildPyramid()
 
 void TreeBillboardsApp::BuildDiamond()
 {
+	// Diamonds of Doom
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData diamond = geoGen.CreateDiamond(1.0f, 1.0f, 1.0f);
+
+	std::vector<Vertex> vertices(diamond.Vertices.size());
+	for (size_t i = 0; i < diamond.Vertices.size(); ++i)
+	{
+		auto& p = diamond.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Normal = diamond.Vertices[i].Normal;
+		vertices[i].TexC = diamond.Vertices[i].TexC;
+	}
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	std::vector<std::uint16_t> indices = diamond.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "diamondGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R16_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["diamond"] = submesh;
+
+	mGeometries["diamondGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::LoadTextures()
@@ -1559,6 +1605,37 @@ void TreeBillboardsApp::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(tipRitem.get());
 		mAllRitems.push_back(std::move(tipRitem));
 	}
+
+	// Build the diamonds above the tips of the wall's towers
+	for (int i = 0; i < 4; i++)
+	{
+		auto diamondRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(5.0f, 8.0f, 5.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 100.0f, 35.0f - 70.0f * (i / 2))));
+		diamondRitem->ObjCBIndex = funcCBIndex++;
+		diamondRitem->Mat = mMaterials["crystal"].get();
+		diamondRitem->Geo = mGeometries["diamondGeo"].get();
+		diamondRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		diamondRitem->IndexCount = diamondRitem->Geo->DrawArgs["diamond"].IndexCount;
+		diamondRitem->StartIndexLocation = diamondRitem->Geo->DrawArgs["diamond"].StartIndexLocation;
+		diamondRitem->BaseVertexLocation = diamondRitem->Geo->DrawArgs["diamond"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(diamondRitem.get());
+		mAllRitems.push_back(std::move(diamondRitem));
+	}
+
+	// Build the diamond above the pyramid
+	auto diamondRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(7.5f, 12.0f, 7.5f) * XMMatrixTranslation(0.0f, 30.0f, 10.0f)));
+	diamondRitem->ObjCBIndex = funcCBIndex++;
+	diamondRitem->Mat = mMaterials["crystal"].get();
+	diamondRitem->Geo = mGeometries["diamondGeo"].get();
+	diamondRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	diamondRitem->IndexCount = diamondRitem->Geo->DrawArgs["diamond"].IndexCount;
+	diamondRitem->StartIndexLocation = diamondRitem->Geo->DrawArgs["diamond"].StartIndexLocation;
+	diamondRitem->BaseVertexLocation = diamondRitem->Geo->DrawArgs["diamond"].BaseVertexLocation;
+
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(diamondRitem.get());
+	mAllRitems.push_back(std::move(diamondRitem));
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
