@@ -1528,7 +1528,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the pyramid inside the castle
 	auto pyramidRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&pyramidRitem->World, (XMMatrixScaling(20.0f, 12.0f, 20.0f) * XMMatrixTranslation(0.0f, 16.0f, 10.0f)));
+	XMStoreFloat4x4(&pyramidRitem->World, (XMMatrixScaling(20.0f, 12.0f, 20.0f) * XMMatrixTranslation(0.0f, 16.0f, 5.0f)));
 	pyramidRitem->ObjCBIndex = funcCBIndex++;
 	pyramidRitem->Mat = mMaterials["crystal"].get();
 	pyramidRitem->Geo = mGeometries["pyramidGeo"].get();
@@ -1636,6 +1636,41 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(diamondRitem.get());
 	mAllRitems.push_back(std::move(diamondRitem));
+
+	// Generate walls surrounding pyramid
+	for (int i = 0; i < 3; i++)
+	{
+		auto wallRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (30.0f * (i % 2)), 45.0f, 5.0f + (25.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-15.0f + (i * 15.0f), 32.0f, 20.0f - 17.5f * (1 - (i % 2)))));
+		wallRitem->ObjCBIndex = funcCBIndex++;
+		wallRitem->Mat = mMaterials["marble"].get();
+		wallRitem->Geo = mGeometries["wallGeo"].get();
+		wallRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		wallRitem->IndexCount = wallRitem->Geo->DrawArgs["wall"].IndexCount;
+		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
+		mAllRitems.push_back(std::move(wallRitem));
+	}
+
+	// Generate connecters between inner and outer walls
+	for (int i = 0; i < 3; i++)
+	{
+		auto wallRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(10.0f + 45.0f * ((i % 2) * 1.0f), 5.0f, 35.0f - 25.0f * ((i % 2) * 1.0f))* XMMatrixTranslation(-22.5f + (i * 22.5f), 52.0f, 27.5f - 22.5f * (1 - (i % 2)))));
+		wallRitem->ObjCBIndex = funcCBIndex++;
+		wallRitem->Mat = mMaterials["marble"].get();
+		wallRitem->Geo = mGeometries["wallGeo"].get();
+		wallRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		wallRitem->IndexCount = wallRitem->Geo->DrawArgs["wall"].IndexCount;
+		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
+		mAllRitems.push_back(std::move(wallRitem));
+	}
+
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
