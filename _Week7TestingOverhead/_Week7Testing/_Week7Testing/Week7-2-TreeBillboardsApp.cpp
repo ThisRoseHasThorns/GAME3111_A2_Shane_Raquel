@@ -202,7 +202,7 @@ bool TreeBillboardsApp::Initialize()
 	// so we have to query this information.
     mCbvSrvDescriptorSize = md3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    mWaves = std::make_unique<Waves>(164, 164, 1.0f, 0.03f, 4.0f, 0.2f);
+    mWaves = std::make_unique<Waves>(128, 128, 1.0f, 0.03f, 4.0f, 0.2f);
  
 	LoadTextures();
     BuildRootSignature();
@@ -545,16 +545,17 @@ void TreeBillboardsApp::UpdateWaves(const GameTimer& gt)
 
 	// Set the dynamic VB of the wave renderitem to the current frame VB.
 	mWavesRitem->Geo->VertexBufferGPU = currWavesVB->Resource();
-}
-
-void TreeBillboardsApp::BuildCastleGeometry()
-{
-	BuildCastleWalls();
-	BuildCastleCorners();
-}
-
+}
+
+void TreeBillboardsApp::BuildCastleGeometry()
+{
+	BuildCastleWalls();
+	BuildCastleCorners();
+}
+
 void TreeBillboardsApp::BuildCastleCorners()
-{	// Create a singular wall geometry, which will then be copied to make multiple walls
+{
+	// Create a singular wall geometry, which will then be copied to make multiple walls
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData corner = geoGen.CreateCylinder(1.0f, 1.0f, 1.0f, 15, 10);
 
@@ -600,11 +601,11 @@ void TreeBillboardsApp::BuildCastleCorners()
 	geo->DrawArgs["corner"] = submesh;
 
 	mGeometries["cornerGeo"] = std::move(geo);
-}
-
+}
+
 void TreeBillboardsApp::BuildCastleWalls()
-{
-	// Create a singular wall geometry, which will then be copied to make multiple walls
+{
+	// Create a singular wall geometry, which will then be copied to make multiple walls
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData wall = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 3);
 
@@ -649,7 +650,7 @@ void TreeBillboardsApp::BuildCastleWalls()
 
 	geo->DrawArgs["wall"] = submesh;
 
-	mGeometries["wallGeo"] = std::move(geo);
+	mGeometries["wallGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::LoadTextures()
@@ -663,7 +664,7 @@ void TreeBillboardsApp::LoadTextures()
 
 	auto waterTex = std::make_unique<Texture>();
 	waterTex->Name = "waterTex";
-	waterTex->Filename = L"../../Textures/water1.dds";
+	waterTex->Filename = L"../../Textures/water.dds";
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), waterTex->Filename.c_str(),
 		waterTex->Resource, waterTex->UploadHeap));
@@ -682,6 +683,20 @@ void TreeBillboardsApp::LoadTextures()
 		mCommandList.Get(), marbleTex->Filename.c_str(),
 		marbleTex->Resource, marbleTex->UploadHeap));
 
+	auto woodTex = std::make_unique<Texture>();
+	woodTex->Name = "woodTex";
+	woodTex->Filename = L"../../Textures/wood.dds";
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), woodTex->Filename.c_str(),
+		woodTex->Resource, woodTex->UploadHeap));
+
+	auto crystalTex = std::make_unique<Texture>();
+	crystalTex->Name = "crystalTex";
+	crystalTex->Filename = L"../../Textures/crystal.dds";
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), crystalTex->Filename.c_str(),
+		crystalTex->Resource, crystalTex->UploadHeap));
+
 	auto treeArrayTex = std::make_unique<Texture>();
 	treeArrayTex->Name = "treeArrayTex";
 	treeArrayTex->Filename = L"../../Textures/treeArray.dds";
@@ -695,6 +710,8 @@ void TreeBillboardsApp::LoadTextures()
 	mTextures[waterTex->Name] = std::move(waterTex);
 	mTextures[brickTex->Name] = std::move(brickTex);
 	mTextures[marbleTex->Name] = std::move(marbleTex);
+	mTextures[woodTex->Name] = std::move(woodTex);
+	mTextures[crystalTex->Name] = std::move(crystalTex);
 	mTextures[treeArrayTex->Name] = std::move(treeArrayTex);
 	
 }
@@ -745,7 +762,7 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 5;
+	srvHeapDesc.NumDescriptors = 7;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -759,6 +776,8 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 	auto waterTex = mTextures["waterTex"]->Resource;
 	auto brickTex = mTextures["brickTex"]->Resource;
 	auto marbleTex = mTextures["marbleTex"]->Resource;
+	auto woodTex = mTextures["woodTex"]->Resource;
+	auto crystalTex = mTextures["crystalTex"]->Resource;
 	auto treeArrayTex = mTextures["treeArrayTex"]->Resource;
 	
 
@@ -786,6 +805,16 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 
 	srvDesc.Format = marbleTex->GetDesc().Format;
 	md3dDevice->CreateShaderResourceView(marbleTex.Get(), &srvDesc, hDescriptor);
+
+	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	srvDesc.Format = woodTex->GetDesc().Format;
+	md3dDevice->CreateShaderResourceView(woodTex.Get(), &srvDesc, hDescriptor);
+
+	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	srvDesc.Format = crystalTex->GetDesc().Format;
+	md3dDevice->CreateShaderResourceView(crystalTex.Get(), &srvDesc, hDescriptor);
 
     // next descriptor
 	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
@@ -820,7 +849,7 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 	mShaders["standardVS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["opaquePS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", defines, "PS", "ps_5_1");
 	mShaders["alphaTestedPS"] = d3dUtil::CompileShader(L"Shaders\\Default.hlsl", alphaTestDefines, "PS", "ps_5_1");
-	
+
 	mShaders["treeSpriteVS"] = d3dUtil::CompileShader(L"Shaders\\TreeSprite.hlsl", nullptr, "VS", "vs_5_1");
 	mShaders["treeSpriteGS"] = d3dUtil::CompileShader(L"Shaders\\TreeSprite.hlsl", nullptr, "GS", "gs_5_1");
 	mShaders["treeSpritePS"] = d3dUtil::CompileShader(L"Shaders\\TreeSprite.hlsl", alphaTestDefines, "PS", "ps_5_1");
@@ -853,9 +882,9 @@ void TreeBillboardsApp::BuildLandGeometry()
     std::vector<Vertex> vertices(grid.Vertices.size());
     for(size_t i = 0; i < grid.Vertices.size(); ++i)
     {
-        auto& p = grid.Vertices[i].Position;
-        vertices[i].Pos = p;
-		if (abs(p.x)> 52 && abs(p.x)< 65 && abs(p.z) < 65 || abs(p.z) > 52 && abs(p.z) < 65 && abs(p.x) < 65)
+		auto& p = grid.Vertices[i].Position;
+		vertices[i].Pos = p;
+		if (abs(p.x) > 52 && abs(p.x) < 65 && abs(p.z) < 65 || abs(p.z) > 52 && abs(p.z) < 65 && abs(p.x) < 65)
 		{
 			vertices[i].Pos.y = -10.0f;
 		}
@@ -863,7 +892,7 @@ void TreeBillboardsApp::BuildLandGeometry()
 		{
 			vertices[i].Pos.y = 6.0f; //GetHillsHeight(p.x, p.z);
 		}
-		
+
 		vertices[i].Normal = XMFLOAT3(p.x, 1.0f, p.y); //GetHillsNormal(p.x, p.z);
 		vertices[i].TexC = grid.Vertices[i].TexC;
     }
@@ -1216,10 +1245,26 @@ void TreeBillboardsApp::BuildMaterials()
 	marble->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	marble->Roughness = 0.25f;
 
+	auto wood = std::make_unique<Material>();
+	wood->Name = "wood";
+	wood->MatCBIndex = 4;
+	wood->DiffuseSrvHeapIndex = 4;
+	wood->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	wood->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	wood->Roughness = 0.25f;
+
+	auto crystal = std::make_unique<Material>();
+	crystal->Name = "crystal";
+	crystal->MatCBIndex = 5;
+	crystal->DiffuseSrvHeapIndex = 5;
+	crystal->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	crystal->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	crystal->Roughness = 0.25f;
+
 	auto treeSprites = std::make_unique<Material>();
 	treeSprites->Name = "treeSprites";
-	treeSprites->MatCBIndex = 4;
-	treeSprites->DiffuseSrvHeapIndex = 4;
+	treeSprites->MatCBIndex = 6;
+	treeSprites->DiffuseSrvHeapIndex = 6;
 	treeSprites->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	treeSprites->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	treeSprites->Roughness = 0.125f;
@@ -1230,6 +1275,8 @@ void TreeBillboardsApp::BuildMaterials()
 	mMaterials["water"] = std::move(water);
 	mMaterials["brick"] = std::move(brick);
 	mMaterials["marble"] = std::move(marble);
+	mMaterials["wood"] = std::move(wood);
+	mMaterials["crystal"] = std::move(crystal);
 	mMaterials["treeSprites"] = std::move(treeSprites);
 	
 }
@@ -1301,7 +1348,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the base of the castle
 	auto baseRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(65.0f, 10.0f, 77.0f) * XMMatrixTranslation(0.0f, 4.0f, 0.0f)));
+	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(67.0f, 12.0f, 77.0f) * XMMatrixTranslation(0.0f, 4.0f, 0.0f)));
 	baseRitem->ObjCBIndex = funcCBIndex++;
 	baseRitem->Mat = mMaterials["brick"].get();
 	baseRitem->Geo = mGeometries["wallGeo"].get();
@@ -1364,7 +1411,6 @@ void TreeBillboardsApp::BuildRenderItems()
 		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(cornerRitem.get());
 		mAllRitems.push_back(std::move(cornerRitem));
 	}
-
 }
 
 void TreeBillboardsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
