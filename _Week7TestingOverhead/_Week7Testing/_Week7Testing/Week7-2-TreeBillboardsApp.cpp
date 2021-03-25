@@ -545,21 +545,21 @@ void TreeBillboardsApp::UpdateWaves(const GameTimer& gt)
 
 	// Set the dynamic VB of the wave renderitem to the current frame VB.
 	mWavesRitem->Geo->VertexBufferGPU = currWavesVB->Resource();
-}
-
-void TreeBillboardsApp::BuildCastleGeometry()
-{
-	BuildCastleWalls();
-	BuildCastleCorners();
-}
-
-void TreeBillboardsApp::BuildCastleCorners()
-{
-}
-
-void TreeBillboardsApp::BuildCastleWalls()
-{
-	// Create a singular wall geometry, which will then be copied to make multiple walls
+}
+
+void TreeBillboardsApp::BuildCastleGeometry()
+{
+	BuildCastleWalls();
+	BuildCastleCorners();
+}
+
+void TreeBillboardsApp::BuildCastleCorners()
+{
+}
+
+void TreeBillboardsApp::BuildCastleWalls()
+{
+	// Create a singular wall geometry, which will then be copied to make multiple walls
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData wall = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 3);
 
@@ -604,7 +604,7 @@ void TreeBillboardsApp::BuildCastleWalls()
 
 	geo->DrawArgs["wall"] = submesh;
 
-	mGeometries["wallGeo"] = std::move(geo);
+	mGeometries["wallGeo"] = std::move(geo);
 }
 
 void TreeBillboardsApp::LoadTextures()
@@ -1224,7 +1224,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
-	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
+	//mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
@@ -1243,13 +1243,14 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mAllRitems.push_back(std::move(wavesRitem));
 	mAllRitems.push_back(std::move(gridRitem));
-	mAllRitems.push_back(std::move(boxRitem));
+	//mAllRitems.push_back(std::move(boxRitem));
 	//mAllRitems.push_back(std::move(treeSpritesRitem));
 
-	for (int i = 0; i < 3; i++)
-	{
+	// This block draws 3 of the 4 main castle walls, specifically the ones without the gate
+	for (int i = 0; i < 3; i++)
+	{
 		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (15.0f * (i % 2)), 20.0f, 5.0f + (15.0f * (1.0f - (i % 2)))) * XMMatrixTranslation((i * 12.5f), 12.0f, 0.0f - 7.5f * (1 - (i % 2)))));
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(10.0f + (20.0f * (i % 2)), 20.0f, 10.0f + (20.0f * (1.0f - (i % 2)))) * XMMatrixTranslation((i * 12.5f), 12.0f, 0.0f - 7.5f * (1 - (i % 2)))));
 		wallRitem->ObjCBIndex = funcCBIndex++;
 		wallRitem->Mat = mMaterials["marble"].get();
 		wallRitem->Geo = mGeometries["wallGeo"].get();
@@ -1258,14 +1259,12 @@ void TreeBillboardsApp::BuildRenderItems()
 		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
 		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
 
-		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
-
-		mAllRitems.push_back(std::move(wallRitem));
+		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
+
+		mAllRitems.push_back(std::move(wallRitem));
 	}
 
-	
-
-    
+   
 	
 }
 
