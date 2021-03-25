@@ -553,11 +553,11 @@ void TreeBillboardsApp::BuildCastleGeometry()
 	BuildCastleCorners();
 }
 
-void TreeBillboardsApp::BuildCastleCorners()
+void TreeBillboardsApp::BuildCastleCorners()
 {
 }
 
-void TreeBillboardsApp::BuildCastleWalls()
+void TreeBillboardsApp::BuildCastleWalls()
 {
 	// Create a singular wall geometry, which will then be copied to make multiple walls
 	GeometryGenerator geoGen;
@@ -1157,16 +1157,16 @@ void TreeBillboardsApp::BuildMaterials()
 
 	auto marble = std::make_unique<Material>();
 	marble->Name = "marble";
-	marble->MatCBIndex = 4;
-	marble->DiffuseSrvHeapIndex = 4;
+	marble->MatCBIndex = 3;
+	marble->DiffuseSrvHeapIndex = 3;
 	marble->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	marble->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	marble->Roughness = 0.25f;
 
 	auto treeSprites = std::make_unique<Material>();
 	treeSprites->Name = "treeSprites";
-	treeSprites->MatCBIndex = 3;
-	treeSprites->DiffuseSrvHeapIndex = 3;
+	treeSprites->MatCBIndex = 4;
+	treeSprites->DiffuseSrvHeapIndex = 4;
 	treeSprites->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	treeSprites->FresnelR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
 	treeSprites->Roughness = 0.125f;
@@ -1224,7 +1224,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
 
-	//mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(boxRitem.get());
 
 	auto treeSpritesRitem = std::make_unique<RenderItem>();
 	treeSpritesRitem->World = MathHelper::Identity4x4();
@@ -1243,7 +1243,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	mAllRitems.push_back(std::move(wavesRitem));
 	mAllRitems.push_back(std::move(gridRitem));
-	//mAllRitems.push_back(std::move(boxRitem));
+	mAllRitems.push_back(std::move(boxRitem));
 	//mAllRitems.push_back(std::move(treeSpritesRitem));
 
 	// This block draws 3 of the 4 main castle walls, specifically the ones without the gate
