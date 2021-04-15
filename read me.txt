@@ -1,0 +1,4 @@
+WASD to move
+Left click + move mouse to look around
+1 To turn on no clip
+2 To turn off no clip
