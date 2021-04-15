@@ -1616,6 +1616,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(gridRitem.get());
 
 	auto boxRitem = std::make_unique<RenderItem>();
+	
 	XMStoreFloat4x4(&boxRitem->World, XMMatrixTranslation(3.0f, 30.0f, -9.0f));
 	//boxRitem->ObjCBIndex = funcCBIndex++;
 	boxRitem->Mat = mMaterials["brick"].get();
@@ -1648,6 +1649,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the base of the castle
 	auto baseRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&baseRitem->TexTransform, (XMMatrixScaling(11.0f, 11.0f, 11.0f)));
 	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(220.0f, 8.0f, 280.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f)));
 	baseRitem->ObjCBIndex = funcCBIndex++;
 	baseRitem->Mat = mMaterials["brick"].get();
@@ -1686,6 +1688,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 3; i++)
 	{
 		auto wallRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&wallRitem->TexTransform, (XMMatrixScaling(10.0f, 2.0f, 1.0f)));
 		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(12.0f + (168.0f * (i % 2)), 40.0f, 12.0f + (228.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-90.0f + (i * 90.0f), 30.0f, 120.0f - 120.0f * (1 - (i % 2)))));
 		//XMStoreFloat4x4(&wallRitem->TexTransform, (XMMatrixScaling(x, y, z)));
 		wallRitem->ObjCBIndex = funcCBIndex++;
@@ -1704,6 +1707,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 3; i++)
 	{
 		auto gateRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&gateRitem->TexTransform, (XMMatrixScaling(6.0f, 2.0f, 1.0f)));
 		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(80.0f - (50.0f * (i % 2)), 40.0f - 25.0f * (1.0f * (i % 2)), 10.0f) * XMMatrixTranslation(-55.0f + (55.0f * i), 30.0f + 12.5f * (i % 2), -120.0f)));
 		gateRitem->ObjCBIndex = funcCBIndex++;
 		gateRitem->Mat = mMaterials["brick"].get();
@@ -1722,6 +1726,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	{
 		// Left side
 		auto leftRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&leftRitem->TexTransform, (XMMatrixScaling(0.5f, 0.25f, 1.0f)));
 		XMStoreFloat4x4(&leftRitem->World, (XMMatrixScaling(12.0f, 5.0f, 15.0f) * XMMatrixTranslation(-90.0f, 52.5f, 80.0f - 40.0f * i)));
 		leftRitem->ObjCBIndex = funcCBIndex++;
 		leftRitem->Mat = mMaterials["brick"].get();
@@ -1736,6 +1741,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Right side
 		auto rightRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&rightRitem->TexTransform, (XMMatrixScaling(0.5f, 0.25f, 1.0f)));
 		XMStoreFloat4x4(&rightRitem->World, (XMMatrixScaling(12.0f, 5.0f, 15.0f) * XMMatrixTranslation(90.0f, 52.5f, 80.0f - 40.0f * i)));
 		rightRitem->ObjCBIndex = funcCBIndex++;
 		rightRitem->Mat = mMaterials["brick"].get();
@@ -1750,6 +1756,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Front
 		auto frontRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&frontRitem->TexTransform, (XMMatrixScaling(0.5f, 0.25f, 1.0f)));
 		XMStoreFloat4x4(&frontRitem->World, (XMMatrixScaling(15.0f, 5.0f, 10.0f) * XMMatrixTranslation(-60.0f + 30.0f * i, 52.5f, -120.0f)));
 		frontRitem->ObjCBIndex = funcCBIndex++;
 		frontRitem->Mat = mMaterials["brick"].get();
@@ -1764,6 +1771,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Back
 		auto backRitem = std::make_unique<RenderItem>();
+		XMStoreFloat4x4(&backRitem->TexTransform, (XMMatrixScaling(0.5f, 0.25f, 1.0f)));
 		XMStoreFloat4x4(&backRitem->World, (XMMatrixScaling(15.0f, 5.0f, 12.0f) * XMMatrixTranslation(-60.0f + 30.0f * i, 52.5f, 120.0f)));
 		backRitem->ObjCBIndex = funcCBIndex++;
 		backRitem->Mat = mMaterials["brick"].get();
