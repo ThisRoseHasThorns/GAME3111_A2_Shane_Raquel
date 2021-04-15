@@ -6,6 +6,7 @@
 #include "../../Common/MathHelper.h"
 #include "../../Common/UploadBuffer.h"
 #include "../../Common/GeometryGenerator.h"
+#include "../../Common/Camera.h"
 #include "FrameResource.h"
 #include "Waves.h"
 
@@ -104,6 +105,7 @@ private:
     void BuildWavesGeometry();
 	void BuildBoxGeometry();
 	void BuildTreeSpritesGeometry();
+	void BuildMazePart(float sX, float sZ, float pX, float pZ, int index);
     void BuildPSOs();
     void BuildFrameResources();
     void BuildMaterials();
@@ -148,15 +150,12 @@ private:
 
     PassConstants mMainPassCB;
 
-	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
-	XMFLOAT4X4 mView = MathHelper::Identity4x4();
-	XMFLOAT4X4 mProj = MathHelper::Identity4x4();
-
-    float mTheta = 1.80f*XM_PI;
-    float mPhi = XM_PIDIV2 - 0.8f;
-    float mRadius = 220.0f;
+	Camera mCamera;
 
     POINT mLastMousePos;
+
+	bool bNoClip = false;
+	XMFLOAT3 prevCamPos;
 };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
@@ -221,6 +220,14 @@ bool TreeBillboardsApp::Initialize()
     BuildFrameResources();
     BuildPSOs();
 
+	// Init camera
+	mCamera.SetPosition(0.0f, 15.0f, -80.0f);
+	mCamera.UpdateViewMatrix();
+	prevCamPos = mCamera.GetPosition3f();
+
+	// Set background color
+	mMainPassCB.FogColor = { 0.0f, 1.0f, 1.0f, 0.5f };
+
     // Execute the initialization commands.
     ThrowIfFailed(mCommandList->Close());
     ID3D12CommandList* cmdsLists[] = { mCommandList.Get() };
@@ -236,9 +243,7 @@ void TreeBillboardsApp::OnResize()
 {
     D3DApp::OnResize();
 
-    // The window resized, so update the aspect ratio and recompute the projection matrix.
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
-    XMStoreFloat4x4(&mProj, P);
+	mCamera.SetLens(0.25f * MathHelper::Pi, AspectRatio(), 1.0f, 1000.0f);
 }
 
 void TreeBillboardsApp::Update(const GameTimer& gt)
@@ -351,54 +356,86 @@ void TreeBillboardsApp::OnMouseUp(WPARAM btnState, int x, int y)
 
 void TreeBillboardsApp::OnMouseMove(WPARAM btnState, int x, int y)
 {
-    if((btnState & MK_LBUTTON) != 0)
-    {
-        // Make each pixel correspond to a quarter of a degree.
-        float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
-        float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+	if ((btnState & MK_LBUTTON) != 0)
+	{
+		// Make each pixel correspond to a quarter of a degree.
+		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 
-        // Update angles based on input to orbit camera around box.
-        mTheta += dx;
-        mPhi += dy;
+		//step4: Instead of updating the angles based on input to orbit camera around scene, 
+		//we rotate the camera’s look direction:
+		//mTheta += dx;
+		//mPhi += dy;
 
-        // Restrict the angle mPhi.
-        mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
-    }
-    else if((btnState & MK_RBUTTON) != 0)
-    {
-        // Make each pixel correspond to 0.2 unit in the scene.
-        float dx = 0.2f*static_cast<float>(x - mLastMousePos.x);
-        float dy = 0.2f*static_cast<float>(y - mLastMousePos.y);
+		if (bNoClip)
+			mCamera.Pitch(dy);
+		mCamera.RotateY(dx);
+	}
 
-        // Update the camera radius based on input.
-        mRadius += dx - dy;
-
-        // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 250.0f);
-    }
-
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
+	mLastMousePos.x = x;
+	mLastMousePos.y = y;
 }
  
 void TreeBillboardsApp::OnKeyboardInput(const GameTimer& gt)
 {
+	const float dt = gt.DeltaTime();
+
+	float camSpeed = 50.0f;
+
+	prevCamPos = mCamera.GetPosition3f();
+
+	//GetAsyncKeyState returns a short (2 bytes)
+	if (GetAsyncKeyState('W') & 0x8000) //most significant bit (MSB) is 1 when key is pressed (1000 000 000 000)
+		mCamera.Walk(camSpeed * dt);
+
+	if (GetAsyncKeyState('S') & 0x8000)
+		mCamera.Walk(-camSpeed * dt);
+
+	if (GetAsyncKeyState('A') & 0x8000)
+		mCamera.Strafe(-camSpeed * dt);
+
+	if (GetAsyncKeyState('D') & 0x8000)
+		mCamera.Strafe(camSpeed * dt);
+
+	if (GetAsyncKeyState('1') & 0x8000)
+		bNoClip = true;
+
+	if (GetAsyncKeyState('2') & 0x8000)
+		bNoClip = false;
+
+	mCamera.UpdateViewMatrix();
+	
 }
  
 void TreeBillboardsApp::UpdateCamera(const GameTimer& gt)
 {
-	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius*sinf(mPhi)*cosf(mTheta);
-	mEyePos.z = mRadius*sinf(mPhi)*sinf(mTheta);
-	mEyePos.y = mRadius*cosf(mPhi);
+	/*if (!bNoClip)
+	{
+		for (size_t i = 0; i < mAllRitems.size(); ++i)
+		{
+			RenderItem ri = *mAllRitems[i];
+			float xPos = ri.World(0, 3);
+			float yPos = ri.World(1, 3);
+			float zPos = ri.World(2, 3);
+			float xMin = xPos - ri.World(0, 0);
+			float xMax = xPos + ri.World(0, 0);
+			float yMin = yPos - ri.World(1, 1);
+			float yMax = yPos + ri.World(1, 1);
+			float zMin = zPos - ri.World(2, 2);
+			float zMax = zPos + ri.World(2, 2);
 
-	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+			if ((mCamera.GetPosition3f().x >= xMin && mCamera.GetPosition3f().x <= xMax) &&
+				(mCamera.GetPosition3f().y >= yMin && mCamera.GetPosition3f().y <= yMax) &&
+				(mCamera.GetPosition3f().z >= zMin && mCamera.GetPosition3f().z <= zMax))
+			{
+				mCamera.SetPosition(prevCamPos);
+				mCamera.UpdateViewMatrix();
+			}
 
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&mView, view);
+
+		}
+
+	}*/
 }
 
 void TreeBillboardsApp::AnimateMaterials(const GameTimer& gt)
@@ -477,8 +514,8 @@ void TreeBillboardsApp::UpdateMaterialCBs(const GameTimer& gt)
 
 void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 {
-	XMMATRIX view = XMLoadFloat4x4(&mView);
-	XMMATRIX proj = XMLoadFloat4x4(&mProj);
+	XMMATRIX view = mCamera.GetView();
+	XMMATRIX proj = mCamera.GetProj();
 
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
@@ -491,7 +528,7 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	XMStoreFloat4x4(&mMainPassCB.InvProj, XMMatrixTranspose(invProj));
 	XMStoreFloat4x4(&mMainPassCB.ViewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mMainPassCB.InvViewProj, XMMatrixTranspose(invViewProj));
-	mMainPassCB.EyePosW = mEyePos;
+	mMainPassCB.EyePosW = mCamera.GetPosition3f();
 	mMainPassCB.RenderTargetSize = XMFLOAT2((float)mClientWidth, (float)mClientHeight);
 	mMainPassCB.InvRenderTargetSize = XMFLOAT2(1.0f / mClientWidth, 1.0f / mClientHeight);
 	mMainPassCB.NearZ = 1.0f;
@@ -508,7 +545,7 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 
 	// Point Lights
-	mMainPassCB.Lights[3].Position = { 0.0f, 30.0f, 10.0f };
+	/*mMainPassCB.Lights[3].Position = { 0.0f, 30.0f, 10.0f };
 	mMainPassCB.Lights[3].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[3].FalloffStart = 5.0f;
 	mMainPassCB.Lights[3].FalloffEnd = 50.0f;
@@ -551,7 +588,7 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[11].Position = { 20.0f, 40.0f, -10.0f };
 	mMainPassCB.Lights[11].Strength = { 0.0f, 0.0f, 1.0f };
 	mMainPassCB.Lights[11].FalloffStart = 5.0f;
-	mMainPassCB.Lights[11].FalloffEnd = 50.0f;
+	mMainPassCB.Lights[11].FalloffEnd = 50.0f;*/
 	
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
@@ -1075,7 +1112,7 @@ void TreeBillboardsApp::BuildShadersAndInputLayouts()
 void TreeBillboardsApp::BuildLandGeometry()
 {
     GeometryGenerator geoGen;
-    GeometryGenerator::MeshData grid = geoGen.CreateGrid(240.0f, 240.0f, 75, 75);
+    GeometryGenerator::MeshData grid = geoGen.CreateGrid(720.0f, 720.0f, 225, 225);
 
     //
     // Extract the vertex elements we are interested and apply the height function to
@@ -1088,7 +1125,7 @@ void TreeBillboardsApp::BuildLandGeometry()
     {
 		auto& p = grid.Vertices[i].Position;
 		vertices[i].Pos = p;
-		if (abs(p.x) > 52 && abs(p.x) < 65 && abs(p.z) < 65 || abs(p.z) > 52 && abs(p.z) < 65 && abs(p.x) < 65)
+		if (abs(p.x) > 175 && abs(p.x) < 999 && abs(p.z) < 999 || abs(p.z) > 200 && abs(p.z) < 999 && abs(p.x) < 999)
 		{
 			vertices[i].Pos.y = -10.0f;
 		}
@@ -1250,14 +1287,14 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		XMFLOAT2 Size;
 	};
 
-	static const int treeCount = 32;
-	std::array<TreeSpriteVertex, 32> vertices;
+	static const int treeCount = 64;
+	std::array<TreeSpriteVertex, 64> vertices;
 	for(UINT i = 0; i < treeCount; ++i)
 	{
 		if (i < treeCount / 4)
 		{
-			float x = MathHelper::RandF(-110.0f, -70.0f);
-			float z = MathHelper::RandF(-100.0f, 100.0f);
+			float x = MathHelper::RandF(-150.0f, -120.0f);
+			float z = MathHelper::RandF(-180.0f, 180.0f);
 			float y = 24.0f; //GetHillsHeight(x, z);
 
 			vertices[i].Pos = XMFLOAT3(x, y, z);
@@ -1265,8 +1302,8 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		}
 		else if (i < treeCount / 2)
 		{
-			float x = MathHelper::RandF(70.0f, 110.0f);
-			float z = MathHelper::RandF(-100.0f, 100.0f);
+			float x = MathHelper::RandF(120.0f, 150.0f);
+			float z = MathHelper::RandF(-180.0f, 180.0f);
 			float y = 24.0f; //GetHillsHeight(x, z);
 
 			vertices[i].Pos = XMFLOAT3(x, y, z);
@@ -1276,8 +1313,8 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		{
 			if (i % 2 == 0)
 			{
-				float x = MathHelper::RandF(-100.0f, -20.0f);
-				float z = MathHelper::RandF(-110.0f, -70.0f);
+				float x = MathHelper::RandF(-130.0f, -10.0f);
+				float z = MathHelper::RandF(-180.0f, -160.0f);
 				float y = 24.0f; //GetHillsHeight(x, z);
 
 				vertices[i].Pos = XMFLOAT3(x, y, z);
@@ -1285,8 +1322,8 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 			}
 			else
 			{
-				float x = MathHelper::RandF(20.0f, 100.0f);
-				float z = MathHelper::RandF(-110.0f, -70.0f);
+				float x = MathHelper::RandF(10.0f, 130.0f);
+				float z = MathHelper::RandF(-180.0f, -160.0f);
 				float y = 24.0f; //GetHillsHeight(x, z);
 
 				vertices[i].Pos = XMFLOAT3(x, y, z);
@@ -1296,7 +1333,7 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		else
 		{
 			float x = MathHelper::RandF(-100.0f, 100.0f);
-			float z = MathHelper::RandF(70.0f, 110.0f);
+			float z = MathHelper::RandF(160.0f, 180.0f);
 			float y = 24.0f; //GetHillsHeight(x, z);
 
 			vertices[i].Pos = XMFLOAT3(x, y, z);
@@ -1304,12 +1341,16 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 		}
 	}
 
-	std::array<std::uint16_t, 32> indices =
+	std::array<std::uint16_t, 64> indices =
 	{
 		0, 1, 2, 3, 4, 5, 6, 7,
 		8, 9, 10, 11, 12, 13, 14, 15,
 		16, 17, 18, 19, 20, 21, 22, 23,
-		24, 25, 26, 27, 28, 29, 30, 31
+		24, 25, 26, 27, 28, 29, 30, 31,
+		32, 33, 34, 35, 36, 37, 38, 39,
+		40, 41, 42, 43, 44, 45, 46, 47, 
+		48, 49, 50, 51, 52, 53, 54, 55, 
+		56, 57, 58, 59, 60, 61, 62, 63
 	};
 
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(TreeSpriteVertex);
@@ -1343,6 +1384,21 @@ void TreeBillboardsApp::BuildTreeSpritesGeometry()
 	geo->DrawArgs["points"] = submesh;
 
 	mGeometries["treeSpritesGeo"] = std::move(geo);
+}
+
+void TreeBillboardsApp::BuildMazePart(float sX, float sZ, float pX, float pZ, int index)
+{
+	// Build the individual wall of the maze
+	auto tempRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&tempRitem->World, (XMMatrixScaling(sX, 30.0f, sZ) * XMMatrixTranslation(pX, 25.0f, pZ)));
+	tempRitem->ObjCBIndex = index++;
+	tempRitem->Mat = mMaterials["grass"].get();
+	tempRitem->Geo = mGeometries["wallGeo"].get();
+	tempRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	tempRitem->IndexCount = tempRitem->Geo->DrawArgs["wall"].IndexCount;
+	tempRitem->StartIndexLocation = tempRitem->Geo->DrawArgs["wall"].StartIndexLocation;
+	tempRitem->BaseVertexLocation = tempRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(tempRitem.get());	mAllRitems.push_back(std::move(tempRitem));
 }
 
 void TreeBillboardsApp::BuildPSOs()
@@ -1532,8 +1588,8 @@ void TreeBillboardsApp::BuildRenderItems()
 	int funcCBIndex = 0;
 
 	auto wavesRitem = std::make_unique<RenderItem>();
-	wavesRitem->World = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&wavesRitem->TexTransform, XMMatrixScaling(5.0f, 5.0f, 1.0f));
+	XMStoreFloat4x4(&wavesRitem->World, XMMatrixScaling(6.0f, 1.0f, 6.0f));
+	XMStoreFloat4x4(&wavesRitem->TexTransform, XMMatrixScaling(30.0f, 30.0f, 1.0f));
 	wavesRitem->ObjCBIndex = funcCBIndex++;
 	wavesRitem->Mat = mMaterials["water"].get();
 	wavesRitem->Geo = mGeometries["waterGeo"].get();
@@ -1576,7 +1632,6 @@ void TreeBillboardsApp::BuildRenderItems()
 	treeSpritesRitem->ObjCBIndex = funcCBIndex++;
 	treeSpritesRitem->Mat = mMaterials["treeSprites"].get();
 	treeSpritesRitem->Geo = mGeometries["treeSpritesGeo"].get();
-	//step2
 	treeSpritesRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
 	treeSpritesRitem->IndexCount = treeSpritesRitem->Geo->DrawArgs["points"].IndexCount;
 	treeSpritesRitem->StartIndexLocation = treeSpritesRitem->Geo->DrawArgs["points"].StartIndexLocation;
@@ -1593,7 +1648,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the base of the castle
 	auto baseRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(67.0f, 12.0f, 77.0f) * XMMatrixTranslation(0.0f, 4.0f, 0.0f)));
+	XMStoreFloat4x4(&baseRitem->World, (XMMatrixScaling(220.0f, 8.0f, 280.0f) * XMMatrixTranslation(0.0f, 6.0f, 0.0f)));
 	baseRitem->ObjCBIndex = funcCBIndex++;
 	baseRitem->Mat = mMaterials["brick"].get();
 	baseRitem->Geo = mGeometries["wallGeo"].get();
@@ -1605,7 +1660,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the drawbridge
 	auto bridgeRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&bridgeRitem->World, (XMMatrixScaling(15.0f, 4.0f, 35.0f) * XMMatrixTranslation(0.0f, 8.0f, -56.0f)));
+	XMStoreFloat4x4(&bridgeRitem->World, (XMMatrixScaling(30.0f, 6.0f, 45.0f) * XMMatrixTranslation(0.0f, 9.0f, -137.5f)));
 	bridgeRitem->ObjCBIndex = funcCBIndex++;
 	bridgeRitem->Mat = mMaterials["wood"].get();
 	bridgeRitem->Geo = mGeometries["wallGeo"].get();
@@ -1617,7 +1672,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the pyramid inside the castle
 	auto pyramidRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&pyramidRitem->World, (XMMatrixScaling(20.0f, 12.0f, 20.0f) * XMMatrixTranslation(0.0f, 16.0f, 5.0f)));
+	XMStoreFloat4x4(&pyramidRitem->World, (XMMatrixScaling(20.0f, 12.0f, 20.0f) * XMMatrixTranslation(0.0f, 16.0f, 100.0f)));
 	pyramidRitem->ObjCBIndex = funcCBIndex++;
 	pyramidRitem->Mat = mMaterials["crystal"].get();
 	pyramidRitem->Geo = mGeometries["pyramidGeo"].get();
@@ -1631,7 +1686,8 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 3; i++)
 	{
 		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (40.0f * (i % 2)), 45.0f, 5.0f + (55.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-30.0f + (i * 30.0f), 32.0f, 35.0f - 35.0f * (1 - (i % 2)))));
+		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(12.0f + (168.0f * (i % 2)), 40.0f, 12.0f + (228.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-90.0f + (i * 90.0f), 30.0f, 120.0f - 120.0f * (1 - (i % 2)))));
+		//XMStoreFloat4x4(&wallRitem->TexTransform, (XMMatrixScaling(x, y, z)));
 		wallRitem->ObjCBIndex = funcCBIndex++;
 		wallRitem->Mat = mMaterials["brick"].get();
 		wallRitem->Geo = mGeometries["wallGeo"].get();
@@ -1648,7 +1704,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 3; i++)
 	{
 		auto gateRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(15.0f, 45.0f - 30.0f * (1.0f * (i % 2)), 5.0f) * XMMatrixTranslation(-15.0f + (15.0f * i), 32.0f + 15.0f * (i % 2), -35.0f)));
+		XMStoreFloat4x4(&gateRitem->World, (XMMatrixScaling(80.0f - (50.0f * (i % 2)), 40.0f - 25.0f * (1.0f * (i % 2)), 10.0f) * XMMatrixTranslation(-55.0f + (55.0f * i), 30.0f + 12.5f * (i % 2), -120.0f)));
 		gateRitem->ObjCBIndex = funcCBIndex++;
 		gateRitem->Mat = mMaterials["brick"].get();
 		gateRitem->Geo = mGeometries["wallGeo"].get();
@@ -1662,11 +1718,11 @@ void TreeBillboardsApp::BuildRenderItems()
 	}
 
 	// Build castle merlons
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 5; i++)
 	{
 		// Left side
 		auto leftRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&leftRitem->World, (XMMatrixScaling(5.0f, 5.0f, 7.5f) * XMMatrixTranslation(-30.0f, 57.0f, 15.0f - 15.0f * i)));
+		XMStoreFloat4x4(&leftRitem->World, (XMMatrixScaling(12.0f, 5.0f, 15.0f) * XMMatrixTranslation(-90.0f, 52.5f, 80.0f - 40.0f * i)));
 		leftRitem->ObjCBIndex = funcCBIndex++;
 		leftRitem->Mat = mMaterials["brick"].get();
 		leftRitem->Geo = mGeometries["wallGeo"].get();
@@ -1680,7 +1736,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Right side
 		auto rightRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&rightRitem->World, (XMMatrixScaling(5.0f, 5.0f, 7.5f) * XMMatrixTranslation(30.0f, 57.0f, 15.0f - 15.0f * i)));
+		XMStoreFloat4x4(&rightRitem->World, (XMMatrixScaling(12.0f, 5.0f, 15.0f) * XMMatrixTranslation(90.0f, 52.5f, 80.0f - 40.0f * i)));
 		rightRitem->ObjCBIndex = funcCBIndex++;
 		rightRitem->Mat = mMaterials["brick"].get();
 		rightRitem->Geo = mGeometries["wallGeo"].get();
@@ -1694,7 +1750,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Front
 		auto frontRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&frontRitem->World, (XMMatrixScaling(7.5f, 5.0f, 5.0f) * XMMatrixTranslation(-15.0f + 15.0f * i, 57.0f, -35.0f)));
+		XMStoreFloat4x4(&frontRitem->World, (XMMatrixScaling(15.0f, 5.0f, 10.0f) * XMMatrixTranslation(-60.0f + 30.0f * i, 52.5f, -120.0f)));
 		frontRitem->ObjCBIndex = funcCBIndex++;
 		frontRitem->Mat = mMaterials["brick"].get();
 		frontRitem->Geo = mGeometries["wallGeo"].get();
@@ -1708,7 +1764,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 		// Back
 		auto backRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&backRitem->World, (XMMatrixScaling(7.5f, 5.0f, 5.0f) * XMMatrixTranslation(-15.0f + 15.0f * i, 57.0f, 35.0f)));
+		XMStoreFloat4x4(&backRitem->World, (XMMatrixScaling(15.0f, 5.0f, 12.0f) * XMMatrixTranslation(-60.0f + 30.0f * i, 52.5f, 120.0f)));
 		backRitem->ObjCBIndex = funcCBIndex++;
 		backRitem->Mat = mMaterials["brick"].get();
 		backRitem->Geo = mGeometries["wallGeo"].get();
@@ -1726,7 +1782,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 4; i++)
 	{
 		auto cornerRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&cornerRitem->World, (XMMatrixScaling(10.0f, 65.0f, 10.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 38.0f, 35.0f - 70.0f * (i / 2))));
+		XMStoreFloat4x4(&cornerRitem->World, (XMMatrixScaling(10.0f, 70.0f, 10.0f) * XMMatrixTranslation(-90.0f + 180.0f * (i % 2), 30.0f, 120.0f - 240.0f * (i / 2))));
 		cornerRitem->ObjCBIndex = funcCBIndex++;
 		cornerRitem->Mat = mMaterials["marble"].get();
 		cornerRitem->Geo = mGeometries["cornerGeo"].get();
@@ -1743,7 +1799,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 4; i++)
 	{
 		auto tipRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&tipRitem->World, (XMMatrixScaling(8.5f, 20.0f, 8.5f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 80.0f, 35.0f - 70.0f * (i / 2))));
+		XMStoreFloat4x4(&tipRitem->World, (XMMatrixScaling(9.0f, 20.0f, 9.0f) * XMMatrixTranslation(-90.0f + 180.0f * (i % 2), 75.0f, 120.0f - 240.0f * (i / 2))));
 		tipRitem->ObjCBIndex = funcCBIndex++;
 		tipRitem->Mat = mMaterials["marble"].get();
 		tipRitem->Geo = mGeometries["coneGeo"].get();
@@ -1760,7 +1816,7 @@ void TreeBillboardsApp::BuildRenderItems()
 	for (int i = 0; i < 4; i++)
 	{
 		auto diamondRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(5.0f, 8.0f, 5.0f) * XMMatrixTranslation(-30.0f + 60.0f * (i % 2), 100.0f, 35.0f - 70.0f * (i / 2))));
+		XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(5.0f, 8.0f, 5.0f) * XMMatrixTranslation(-90.0f + 180.0f * (i % 2), 100.0f, 120.0f - 240.0f * (i / 2))));
 		diamondRitem->ObjCBIndex = funcCBIndex++;
 		diamondRitem->Mat = mMaterials["crystal"].get();
 		diamondRitem->Geo = mGeometries["diamondGeo"].get();
@@ -1775,7 +1831,7 @@ void TreeBillboardsApp::BuildRenderItems()
 
 	// Build the diamond above the pyramid
 	auto diamondRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(7.5f, 12.0f, 7.5f) * XMMatrixTranslation(0.0f, 30.0f, 10.0f)));
+	XMStoreFloat4x4(&diamondRitem->World, (XMMatrixScaling(7.5f, 12.0f, 7.5f) * XMMatrixTranslation(0.0f, 30.0f, 100.0f)));
 	diamondRitem->ObjCBIndex = funcCBIndex++;
 	diamondRitem->Mat = mMaterials["crystal"].get();
 	diamondRitem->Geo = mGeometries["diamondGeo"].get();
@@ -1787,39 +1843,85 @@ void TreeBillboardsApp::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::AlphaTested].push_back(diamondRitem.get());
 	mAllRitems.push_back(std::move(diamondRitem));
 
-	// Generate walls surrounding pyramid
-	for (int i = 0; i < 3; i++)
-	{
-		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(5.0f + (30.0f * (i % 2)), 45.0f, 5.0f + (25.0f * (1.0f - (i % 2)))) * XMMatrixTranslation(-15.0f + (i * 15.0f), 32.0f, 20.0f - 17.5f * (1 - (i % 2)))));
-		wallRitem->ObjCBIndex = funcCBIndex++;
-		wallRitem->Mat = mMaterials["brick"].get();
-		wallRitem->Geo = mGeometries["wallGeo"].get();
-		wallRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		wallRitem->IndexCount = wallRitem->Geo->DrawArgs["wall"].IndexCount;
-		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
-		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
 
-		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
-		mAllRitems.push_back(std::move(wallRitem));
-	}
+	// Build the maze, wall by wall
+	// Outer walls
+	BuildMazePart(54.0f, 1.5f, 40.0f, -90.0f, funcCBIndex++);
+	BuildMazePart(54.0f, 1.5f, -40.0f, -90.0f, funcCBIndex++);
+	BuildMazePart(54.0f, 1.5f, 40.0f, 90.0f, funcCBIndex++);
+	BuildMazePart(54.0f, 1.5f, -40.0f, 90.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 180.0f, 67.0f, 0.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 180.0f, -67.0f, 0.0f, funcCBIndex++);
 
-	// Generate connecters between inner and outer walls
-	for (int i = 0; i < 3; i++)
-	{
-		auto wallRitem = std::make_unique<RenderItem>();
-		XMStoreFloat4x4(&wallRitem->World, (XMMatrixScaling(10.0f + 45.0f * ((i % 2) * 1.0f), 5.0f, 35.0f - 25.0f * ((i % 2) * 1.0f))* XMMatrixTranslation(-22.5f + (i * 22.5f), 52.0f, 27.5f - 22.5f * (1 - (i % 2)))));
-		wallRitem->ObjCBIndex = funcCBIndex++;
-		wallRitem->Mat = mMaterials["brick"].get();
-		wallRitem->Geo = mGeometries["wallGeo"].get();
-		wallRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		wallRitem->IndexCount = wallRitem->Geo->DrawArgs["wall"].IndexCount;
-		wallRitem->StartIndexLocation = wallRitem->Geo->DrawArgs["wall"].StartIndexLocation;
-		wallRitem->BaseVertexLocation = wallRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
+	BuildMazePart(20.0f, 1.5f, 21.0f, -80.0f, funcCBIndex++);
+	BuildMazePart(22.0f, 1.5f, 56.0f, -80.0f, funcCBIndex++);
+	BuildMazePart(42.0f, 1.5f, -34.0f, -80.0f, funcCBIndex++);
 
-		mRitemLayer[(int)RenderLayer::AlphaTested].push_back(wallRitem.get());
-		mAllRitems.push_back(std::move(wallRitem));
-	}
+	BuildMazePart(1.5f, 31.5f, 45.0f, -65.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 41.5f, 31.0f, -60.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 31.5f, -13.0f, -65.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 31.5f, -55.0f, -65.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 26.5f, -16.0f, -103.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 26.5f, 16.0f, -103.0f, funcCBIndex++);
+
+	BuildMazePart(30.0f, 1.5f, -40.0f, -60.0f, funcCBIndex++);
+	BuildMazePart(10.0f, 1.5f, 50.0f, -65.0f, funcCBIndex++);
+	BuildMazePart(42.5f, 1.5f, -46.0f, -30.0f, funcCBIndex++);
+	BuildMazePart(67.5f, 1.5f, 20.0f, -30.0f, funcCBIndex++);
+
+	BuildMazePart(1.5f, 31.5f, -25.0f, -45.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 35.5f, 12.0f, -48.0f, funcCBIndex++);
+	BuildMazePart(20.0f, 1.5f, 21.5f, -55.0f, funcCBIndex++);
+
+	BuildMazePart(42.5f, 1.5f, -46.0f, 0.0f, funcCBIndex++);
+	BuildMazePart(42.5f, 1.5f, -34.0f, -15.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 31.5f, -13.0f, -15.0f, funcCBIndex++);
+
+	BuildMazePart(1.5f, 41.5f, 31.0f, 5.0f, funcCBIndex++);
+	BuildMazePart(24.0f, 1.5f, 55.0f, -15.0f, funcCBIndex++); 
+	BuildMazePart(24.0f, 1.5f, 43.0f, 0.0f, funcCBIndex++);
+	BuildMazePart(24.0f, 1.5f, 19.0f, -15.0f, funcCBIndex++);
+	BuildMazePart(36.0f, 1.5f, 49.0f, 25.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 15.0f, 49.0f, 7.5f, funcCBIndex++);
+
+	BuildMazePart(32.5f, 1.5f, 2.5f, 0.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 30.0f, 0.0f, 15.0f, funcCBIndex++);
+
+	BuildMazePart(32.5f, 1.5f, -41.0f, 80.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 20.0f, -41.0f, 70.0f, funcCBIndex++);
+	BuildMazePart(13.5f, 1.5f, -47.0f, 60.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -53.0f, 66.0f, funcCBIndex++);
+
+	BuildMazePart(13.5f, 1.5f, -27.0f, 57.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -33.0f, 63.0f, funcCBIndex++);
+	BuildMazePart(13.5f, 1.5f, -27.0f, 69.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -21.0f, 63.0f, funcCBIndex++);
+
+	BuildMazePart(32.5f, 1.5f, -41.0f, 35.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 20.0f, -41.0f, 25.0f, funcCBIndex++);
+	BuildMazePart(13.5f, 1.5f, -47.0f, 15.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -53.0f, 21.0f, funcCBIndex++);
+
+	BuildMazePart(17.5f, 1.5f, -20.0f, 9.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -28.0f, 15.0f, funcCBIndex++);
+	BuildMazePart(17.5f, 1.5f, -20.0f, 21.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 11.5f, -12.0f, 15.0f, funcCBIndex++);
+
+	BuildMazePart(35.0f, 1.5f, -49.0f, 47.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 61.5f, -13.0f, 60.0f, funcCBIndex++);
+	BuildMazePart(13.5f, 1.5f, -6.0f, 30.0f, funcCBIndex++);
+
+	BuildMazePart(1.5f, 31.5f, 13.0f, 75.0f, funcCBIndex++);
+	BuildMazePart(36.5f, 1.5f, 6.0f, 45.0f, funcCBIndex++);
+	BuildMazePart(16.5f, 1.5f, 23.0f, 25.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 21.5f, 24.0f, 55.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 15.0f, 24.0f, 82.5f, funcCBIndex++);
+	BuildMazePart(27.5f, 1.5f, 37.0f, 65.0f, funcCBIndex++);
+	BuildMazePart(1.5f, 15.0f, 39.0f, 72.5f, funcCBIndex++);
+	BuildMazePart(1.5f, 25.0f, 42.0f, 37.5f, funcCBIndex++);
+	BuildMazePart(12.5f, 1.5f, 48.0f, 40.0f, funcCBIndex++);
+
+	
 
 }
 
