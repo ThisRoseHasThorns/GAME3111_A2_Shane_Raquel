@@ -938,6 +938,13 @@ void TreeBillboardsApp::LoadTextures()
 		mCommandList.Get(), crystalTex->Filename.c_str(),
 		crystalTex->Resource, crystalTex->UploadHeap));
 
+	auto hedgeTex = std::make_unique<Texture>();
+	hedgeTex->Name = "hedgeTex";
+	hedgeTex->Filename = L"../../Textures/hedge.dds";
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), hedgeTex->Filename.c_str(),
+		hedgeTex->Resource, hedgeTex->UploadHeap));
+
 	auto treeArrayTex = std::make_unique<Texture>();
 	treeArrayTex->Name = "treeArrayTex";
 	treeArrayTex->Filename = L"../../Textures/treeArray.dds";
@@ -953,6 +960,7 @@ void TreeBillboardsApp::LoadTextures()
 	mTextures[marbleTex->Name] = std::move(marbleTex);
 	mTextures[woodTex->Name] = std::move(woodTex);
 	mTextures[crystalTex->Name] = std::move(crystalTex);
+	mTextures[hedgeTex->Name] = std::move(hedgeTex);
 	mTextures[treeArrayTex->Name] = std::move(treeArrayTex);
 	
 }
@@ -1019,6 +1027,7 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 	auto marbleTex = mTextures["marbleTex"]->Resource;
 	auto woodTex = mTextures["woodTex"]->Resource;
 	auto crystalTex = mTextures["crystalTex"]->Resource;
+	auto hedgeTex = mTextures["hedgeTex"]->Resource;
 	auto treeArrayTex = mTextures["treeArrayTex"]->Resource;
 	
 
@@ -1056,6 +1065,9 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 
 	srvDesc.Format = crystalTex->GetDesc().Format;
 	md3dDevice->CreateShaderResourceView(crystalTex.Get(), &srvDesc, hDescriptor);
+
+	srvDesc.Format = hedgeTex->GetDesc().Format;
+	md3dDevice->CreateShaderResourceView(hedgeTex.Get(), &srvDesc, hDescriptor);
 
     // next descriptor
 	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
@@ -1390,9 +1402,10 @@ void TreeBillboardsApp::BuildMazePart(float sX, float sZ, float pX, float pZ, in
 {
 	// Build the individual wall of the maze
 	auto tempRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&tempRitem->TexTransform, (XMMatrixScaling(6.0f, 3.0f, 4.0f)));
 	XMStoreFloat4x4(&tempRitem->World, (XMMatrixScaling(sX, 30.0f, sZ) * XMMatrixTranslation(pX, 25.0f, pZ)));
 	tempRitem->ObjCBIndex = index++;
-	tempRitem->Mat = mMaterials["grass"].get();
+	tempRitem->Mat = mMaterials["hedge"].get();
 	tempRitem->Geo = mGeometries["wallGeo"].get();
 	tempRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	tempRitem->IndexCount = tempRitem->Geo->DrawArgs["wall"].IndexCount;
@@ -1562,6 +1575,14 @@ void TreeBillboardsApp::BuildMaterials()
 	crystal->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	crystal->Roughness = 0.25f;
 
+	auto hedge = std::make_unique<Material>();
+	hedge->Name = "hedge";
+	hedge->MatCBIndex = 5;
+	hedge->DiffuseSrvHeapIndex = 5;
+	hedge->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	hedge->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	hedge->Roughness = 0.25f;
+
 	auto treeSprites = std::make_unique<Material>();
 	treeSprites->Name = "treeSprites";
 	treeSprites->MatCBIndex = 6;
@@ -1578,6 +1599,7 @@ void TreeBillboardsApp::BuildMaterials()
 	mMaterials["marble"] = std::move(marble);
 	mMaterials["wood"] = std::move(wood);
 	mMaterials["crystal"] = std::move(crystal);
+	mMaterials["hedge"] = std::move(hedge);
 	mMaterials["treeSprites"] = std::move(treeSprites);
 	
 }
