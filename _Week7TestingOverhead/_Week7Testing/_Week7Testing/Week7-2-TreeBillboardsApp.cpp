@@ -545,37 +545,37 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 
 	// Point Lights
-	/*mMainPassCB.Lights[3].Position = { 0.0f, 30.0f, 10.0f };
+	mMainPassCB.Lights[3].Position = { 0.0f, 30.0f, 10.0f };
 	mMainPassCB.Lights[3].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[3].FalloffStart = 5.0f;
 	mMainPassCB.Lights[3].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[4].Position = { -30.0f, 100.0f, -35.0f };
 	mMainPassCB.Lights[4].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[4].FalloffStart = 5.0f;
 	mMainPassCB.Lights[4].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[5].Position = { 30.0f, 100.0f, -35.0f };
 	mMainPassCB.Lights[5].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[5].FalloffStart = 5.0f;
 	mMainPassCB.Lights[5].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[6].Position = { -30.0f, 100.0f, 35.0f };
 	mMainPassCB.Lights[6].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[6].FalloffStart = 5.0f;
 	mMainPassCB.Lights[6].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[7].Position = { 30.0f, 100.0f, 35.0f };
 	mMainPassCB.Lights[7].Strength = { 0.0f, 1.0f, 0.0f };
 	mMainPassCB.Lights[7].FalloffStart = 5.0f;
 	mMainPassCB.Lights[7].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[8].Position = { -10.0f, 40.0f, -42.0f };
 	mMainPassCB.Lights[8].Strength = { 0.0f, 0.0f, 1.0f };
 	mMainPassCB.Lights[8].FalloffStart = 5.0f;
 	mMainPassCB.Lights[8].FalloffEnd = 50.0f;
-
-	mMainPassCB.Lights[9].Position = { 10.0f, 40.0f, -42.0f };
+	
+	mMainPassCB.Lights[9].Position = { 0.0f, 15.0f, 100.0f };
 	mMainPassCB.Lights[9].Strength = { 0.0f, 0.0f, 1.0f };
 	mMainPassCB.Lights[9].FalloffStart = 5.0f;
 	mMainPassCB.Lights[9].FalloffEnd = 50.0f;
@@ -584,11 +584,11 @@ void TreeBillboardsApp::UpdateMainPassCB(const GameTimer& gt)
 	mMainPassCB.Lights[10].Strength = { 0.0f, 0.0f, 1.0f };
 	mMainPassCB.Lights[10].FalloffStart = 5.0f;
 	mMainPassCB.Lights[10].FalloffEnd = 50.0f;
-
+	
 	mMainPassCB.Lights[11].Position = { 20.0f, 40.0f, -10.0f };
 	mMainPassCB.Lights[11].Strength = { 0.0f, 0.0f, 1.0f };
 	mMainPassCB.Lights[11].FalloffStart = 5.0f;
-	mMainPassCB.Lights[11].FalloffEnd = 50.0f;*/
+	mMainPassCB.Lights[11].FalloffEnd = 50.0f;
 	
 
 	auto currPassCB = mCurrFrameResource->PassCB.get();
@@ -938,13 +938,6 @@ void TreeBillboardsApp::LoadTextures()
 		mCommandList.Get(), crystalTex->Filename.c_str(),
 		crystalTex->Resource, crystalTex->UploadHeap));
 
-	auto hedgeTex = std::make_unique<Texture>();
-	hedgeTex->Name = "hedgeTex";
-	hedgeTex->Filename = L"../../Textures/hedge.dds";
-	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
-		mCommandList.Get(), hedgeTex->Filename.c_str(),
-		hedgeTex->Resource, hedgeTex->UploadHeap));
-
 	auto treeArrayTex = std::make_unique<Texture>();
 	treeArrayTex->Name = "treeArrayTex";
 	treeArrayTex->Filename = L"../../Textures/treeArray.dds";
@@ -960,7 +953,6 @@ void TreeBillboardsApp::LoadTextures()
 	mTextures[marbleTex->Name] = std::move(marbleTex);
 	mTextures[woodTex->Name] = std::move(woodTex);
 	mTextures[crystalTex->Name] = std::move(crystalTex);
-	mTextures[hedgeTex->Name] = std::move(hedgeTex);
 	mTextures[treeArrayTex->Name] = std::move(treeArrayTex);
 	
 }
@@ -1011,7 +1003,7 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 7;
+	srvHeapDesc.NumDescriptors = 8;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -1027,7 +1019,6 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 	auto marbleTex = mTextures["marbleTex"]->Resource;
 	auto woodTex = mTextures["woodTex"]->Resource;
 	auto crystalTex = mTextures["crystalTex"]->Resource;
-	auto hedgeTex = mTextures["hedgeTex"]->Resource;
 	auto treeArrayTex = mTextures["treeArrayTex"]->Resource;
 	
 
@@ -1065,9 +1056,6 @@ void TreeBillboardsApp::BuildDescriptorHeaps()
 
 	srvDesc.Format = crystalTex->GetDesc().Format;
 	md3dDevice->CreateShaderResourceView(crystalTex.Get(), &srvDesc, hDescriptor);
-
-	srvDesc.Format = hedgeTex->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(hedgeTex.Get(), &srvDesc, hDescriptor);
 
     // next descriptor
 	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
@@ -1402,10 +1390,10 @@ void TreeBillboardsApp::BuildMazePart(float sX, float sZ, float pX, float pZ, in
 {
 	// Build the individual wall of the maze
 	auto tempRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&tempRitem->TexTransform, (XMMatrixScaling(6.0f, 3.0f, 4.0f)));
+	XMStoreFloat4x4(&tempRitem->TexTransform, (XMMatrixScaling(6.0f, 4.0f, 4.0f)));
 	XMStoreFloat4x4(&tempRitem->World, (XMMatrixScaling(sX, 30.0f, sZ) * XMMatrixTranslation(pX, 25.0f, pZ)));
 	tempRitem->ObjCBIndex = index++;
-	tempRitem->Mat = mMaterials["hedge"].get();
+	tempRitem->Mat = mMaterials["grass"].get();
 	tempRitem->Geo = mGeometries["wallGeo"].get();
 	tempRitem->PrimitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	tempRitem->IndexCount = tempRitem->Geo->DrawArgs["wall"].IndexCount;
@@ -1575,14 +1563,6 @@ void TreeBillboardsApp::BuildMaterials()
 	crystal->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	crystal->Roughness = 0.25f;
 
-	auto hedge = std::make_unique<Material>();
-	hedge->Name = "hedge";
-	hedge->MatCBIndex = 5;
-	hedge->DiffuseSrvHeapIndex = 5;
-	hedge->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	hedge->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	hedge->Roughness = 0.25f;
-
 	auto treeSprites = std::make_unique<Material>();
 	treeSprites->Name = "treeSprites";
 	treeSprites->MatCBIndex = 6;
@@ -1599,7 +1579,6 @@ void TreeBillboardsApp::BuildMaterials()
 	mMaterials["marble"] = std::move(marble);
 	mMaterials["wood"] = std::move(wood);
 	mMaterials["crystal"] = std::move(crystal);
-	mMaterials["hedge"] = std::move(hedge);
 	mMaterials["treeSprites"] = std::move(treeSprites);
 	
 }
@@ -1882,65 +1861,65 @@ void TreeBillboardsApp::BuildRenderItems()
 	BuildMazePart(54.0f, 1.5f, -40.0f, 90.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 180.0f, 67.0f, 0.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 180.0f, -67.0f, 0.0f, funcCBIndex++);
-
+	
 	BuildMazePart(20.0f, 1.5f, 21.0f, -80.0f, funcCBIndex++);
 	BuildMazePart(22.0f, 1.5f, 56.0f, -80.0f, funcCBIndex++);
 	BuildMazePart(42.0f, 1.5f, -34.0f, -80.0f, funcCBIndex++);
-
+	
 	BuildMazePart(1.5f, 31.5f, 45.0f, -65.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 41.5f, 31.0f, -60.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 31.5f, -13.0f, -65.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 31.5f, -55.0f, -65.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 26.5f, -16.0f, -103.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 26.5f, 16.0f, -103.0f, funcCBIndex++);
-
+	
 	BuildMazePart(30.0f, 1.5f, -40.0f, -60.0f, funcCBIndex++);
 	BuildMazePart(10.0f, 1.5f, 50.0f, -65.0f, funcCBIndex++);
 	BuildMazePart(42.5f, 1.5f, -46.0f, -30.0f, funcCBIndex++);
 	BuildMazePart(67.5f, 1.5f, 20.0f, -30.0f, funcCBIndex++);
-
+	
 	BuildMazePart(1.5f, 31.5f, -25.0f, -45.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 35.5f, 12.0f, -48.0f, funcCBIndex++);
 	BuildMazePart(20.0f, 1.5f, 21.5f, -55.0f, funcCBIndex++);
-
+	
 	BuildMazePart(42.5f, 1.5f, -46.0f, 0.0f, funcCBIndex++);
 	BuildMazePart(42.5f, 1.5f, -34.0f, -15.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 31.5f, -13.0f, -15.0f, funcCBIndex++);
-
+	
 	BuildMazePart(1.5f, 41.5f, 31.0f, 5.0f, funcCBIndex++);
 	BuildMazePart(24.0f, 1.5f, 55.0f, -15.0f, funcCBIndex++); 
 	BuildMazePart(24.0f, 1.5f, 43.0f, 0.0f, funcCBIndex++);
 	BuildMazePart(24.0f, 1.5f, 19.0f, -15.0f, funcCBIndex++);
 	BuildMazePart(36.0f, 1.5f, 49.0f, 25.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 15.0f, 49.0f, 7.5f, funcCBIndex++);
-
+	
 	BuildMazePart(32.5f, 1.5f, 2.5f, 0.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 30.0f, 0.0f, 15.0f, funcCBIndex++);
-
+	
 	BuildMazePart(32.5f, 1.5f, -41.0f, 80.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 20.0f, -41.0f, 70.0f, funcCBIndex++);
 	BuildMazePart(13.5f, 1.5f, -47.0f, 60.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -53.0f, 66.0f, funcCBIndex++);
-
+	
 	BuildMazePart(13.5f, 1.5f, -27.0f, 57.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -33.0f, 63.0f, funcCBIndex++);
 	BuildMazePart(13.5f, 1.5f, -27.0f, 69.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -21.0f, 63.0f, funcCBIndex++);
-
+	
 	BuildMazePart(32.5f, 1.5f, -41.0f, 35.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 20.0f, -41.0f, 25.0f, funcCBIndex++);
 	BuildMazePart(13.5f, 1.5f, -47.0f, 15.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -53.0f, 21.0f, funcCBIndex++);
-
+	
 	BuildMazePart(17.5f, 1.5f, -20.0f, 9.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -28.0f, 15.0f, funcCBIndex++);
 	BuildMazePart(17.5f, 1.5f, -20.0f, 21.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 11.5f, -12.0f, 15.0f, funcCBIndex++);
-
+	
 	BuildMazePart(35.0f, 1.5f, -49.0f, 47.0f, funcCBIndex++);
 	BuildMazePart(1.5f, 61.5f, -13.0f, 60.0f, funcCBIndex++);
 	BuildMazePart(13.5f, 1.5f, -6.0f, 30.0f, funcCBIndex++);
-
+	
 	BuildMazePart(1.5f, 31.5f, 13.0f, 75.0f, funcCBIndex++);
 	BuildMazePart(36.5f, 1.5f, 6.0f, 45.0f, funcCBIndex++);
 	BuildMazePart(16.5f, 1.5f, 23.0f, 25.0f, funcCBIndex++);
